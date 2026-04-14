@@ -1,0 +1,11 @@
+{
+  "name": "@pfrang/games",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev --ui tui"
+  },
+  "packageManager": "pnpm@10.25.0",
+  "devDependencies": {
+    "turbo": "^2.9.6"
+  }
+}
