@@ -2,7 +2,15 @@
   "name": "@pfrang/games",
   "private": true,
   "scripts": {
-    "dev": "turbo dev --ui tui"
+    "dev": "turbo dev --ui tui",
+    "db:push": "pnpm --filter @games/db db:push",
+    "db:generate": "pnpm --filter @games/db db:generate",
+    "db:migrate": "pnpm --filter @games/db db:migrate",
+    "db:studio": "pnpm --filter @games/db db:studio",
+    "build": "turbo build"
+  },
+  "dependencies": {
+    "@games/db": "workspace:*"
   },
   "packageManager": "pnpm@10.25.0",
   "devDependencies": {
