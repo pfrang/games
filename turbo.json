@@ -4,6 +4,9 @@
     "dev": {
       "persistent": true,
       "cache": false
+    },
+    "build": {
+      "outputs": [".svelte-kit/**", "build/**"]
     }
   }
 }

@@ -7,7 +7,8 @@
     "db:generate": "pnpm --filter @games/db db:generate",
     "db:migrate": "pnpm --filter @games/db db:migrate",
     "db:studio": "pnpm --filter @games/db db:studio",
-    "build": "turbo build"
+    "build": "turbo build",
+    "start:quiplash": "pnpm --filter quiplash start:local"
   },
   "dependencies": {
     "@games/db": "workspace:*"
