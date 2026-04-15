@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	let { form } = $props();
+	let { form, playerId } = $props();
 
 	let mode = $state<'join' | 'create'>('join');
 	let loading = $state(false);

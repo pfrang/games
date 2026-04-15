@@ -4,6 +4,15 @@ import { createPlayer } from '$lib/db/players/create';
 import type { Actions } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
 
+export const load = async ({ cookies }) => {
+	// get cookies
+	//
+
+	const playerId = cookies.get('quiplash-player');
+
+	return { playerId };
+};
+
 export const actions = {
 	join: async ({ request }) => {
 		const formData = await request.formData();
