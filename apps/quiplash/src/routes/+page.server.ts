@@ -1,16 +1,17 @@
 import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createLobby } from '$lib/db/lobbies/create';
 import { createPlayer } from '$lib/db/players/create';
+import type { PlayerCookie } from '$lib/types/player';
 import type { Actions } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
 
 export const load = async ({ cookies }) => {
-	// get cookies
-	//
-
-	const playerId = cookies.get('quiplash-player');
-
-	return { playerId };
+	let playerCookie: PlayerCookie | undefined;
+	try {
+		const player = JSON.parse(cookies.get('quiplash-player') || '{}');
+		playerCookie = player;
+	} catch (e) {}
+	return { playerCookie };
 };
 
 export const actions = {
@@ -45,8 +46,14 @@ export const actions = {
 			console.error(e);
 			return fail(500, { message: 'Could not create room. Try again.' });
 		}
+		if (lobby && player) {
+			const playerCookie: PlayerCookie = {
+				...player,
+				roomCode: lobby.roomCode
+			};
 
-		cookies.set('quiplash-player', player.id, { path: '/' });
+			cookies.set('quiplash-player', JSON.stringify(playerCookie), { path: '/' });
+		}
 
 		redirect(302, `/${lobby.roomCode}`);
 	}

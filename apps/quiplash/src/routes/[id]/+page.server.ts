@@ -3,6 +3,7 @@ import { fail, redirect, type Actions } from '@sveltejs/kit';
 import { getPlayersByLobbyId } from '$lib/db/players';
 import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createPlayer } from '$lib/db/players/create';
+import type { PlayerCookie } from '$lib/types/player';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -12,8 +13,13 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 	if (!lobby) redirect(302, '/');
 
 	const players = await getPlayersByLobbyId(lobby.id);
+	let playerCookie: PlayerCookie | undefined;
+	try {
+		const player = JSON.parse(cookies.get('quiplash-player') || '{}');
+		playerCookie = player;
+	} catch (e) {}
 
-	return { lobby, players, playerId: cookies.get('quiplash-player') ?? null };
+	return { lobby, players, playerCookie };
 };
 
 export const actions = {

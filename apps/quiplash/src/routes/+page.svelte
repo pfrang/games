@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	let { form, playerId } = $props();
+	let { form, data } = $props();
+	let playerCookie = $derived(data.playerCookie);
 
 	let mode = $state<'join' | 'create'>('join');
 	let loading = $state(false);
@@ -22,6 +23,16 @@
 		<p class="subtitle">the game where your words do the talking</p>
 	</div>
 
+	{#if playerCookie?.roomCode}
+		<div class="rejoin-banner">
+			<p class="rejoin-text">
+				You're already in a game · <span class="rejoin-code">{playerCookie.roomCode}</span>
+			</p>
+			<a href="/{playerCookie.roomCode}" class="join-btn rejoin-btn">
+				<span>BACK TO GAME</span>
+			</a>
+		</div>
+	{/if}
 	<div class="card">
 		<div class="card-inner">
 			<div class="toggle">
@@ -139,6 +150,39 @@
 		width: 100%;
 		text-align: center;
 		height: 30px;
+	}
+
+	/* ---------- rejoin banner ---------- */
+	.rejoin-banner {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
+		padding: 1.25rem 1.5rem;
+		border-radius: 16px;
+		border: 1.5px solid #a78bfa55;
+		background: linear-gradient(135deg, #1a1040 0%, #13132a 100%);
+		box-shadow: 0 0 30px #a78bfa22;
+		text-align: center;
+	}
+
+	.rejoin-text {
+		color: #c4b5fd;
+		font-size: 0.9rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+	}
+
+	.rejoin-code {
+		color: #f0abfc;
+		font-weight: 800;
+		letter-spacing: 0.25em;
+	}
+
+	.rejoin-btn {
+		padding: 0.7rem 2rem;
+		font-size: 0.9rem;
 	}
 
 	.container {
