@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { subscriber } from '$lib/redis/index.js';
 
 	let { form, data } = $props();
 	let playerCookie = $derived(data.playerCookie);
+
+	let wsSubscriber = subscriber.subscribe('ws-notifications');
 
 	let mode = $state<'join' | 'create'>('join');
 	let loading = $state(false);
