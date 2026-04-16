@@ -2,15 +2,12 @@ import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createLobby } from '$lib/db/lobbies/create';
 import { createPlayer } from '$lib/db/players/create';
 import type { PlayerCookie } from '$lib/types/player';
+import { parseCookie } from '$lib/utils/cookies.js';
 import type { Actions } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
 
 export const load = async ({ cookies }) => {
-	let playerCookie: PlayerCookie | undefined;
-	try {
-		const player = JSON.parse(cookies.get('quiplash-player') || '{}');
-		playerCookie = player;
-	} catch (e) {}
+	const playerCookie = parseCookie<PlayerCookie>(cookies, 'quiplash-player');
 	return { playerCookie };
 };
 

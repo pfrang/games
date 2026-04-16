@@ -4,6 +4,7 @@ import { getPlayersByLobbyId } from '$lib/db/players';
 import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createPlayer } from '$lib/db/players/create';
 import type { PlayerCookie } from '$lib/types/player';
+import { parseCookie } from '$lib/utils/cookies';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -13,11 +14,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 	if (!lobby) redirect(302, '/');
 
 	const players = await getPlayersByLobbyId(lobby.id);
-	let playerCookie: PlayerCookie | undefined;
-	try {
-		const player = JSON.parse(cookies.get('quiplash-player') || '{}');
-		playerCookie = player;
-	} catch (e) {}
+	const playerCookie = parseCookie<PlayerCookie>(cookies, 'quiplash-player');
 
 	return { lobby, players, playerCookie };
 };
