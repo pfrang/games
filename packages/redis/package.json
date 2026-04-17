@@ -7,6 +7,9 @@
         "./types": "./src/index.ts",
         "./redis": "./src/redis.ts"
     },
+    "scripts": {
+        "dev": "node --env-file=.env cli.mjs"
+    },
     "dependencies": {
         "redis": "^5.12.1"
     }
