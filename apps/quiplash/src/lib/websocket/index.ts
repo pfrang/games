@@ -1,57 +1,44 @@
-interface MessageBase {
-	action: 'setUser' | 'message';
-}
-
-interface MessageSetUser extends MessageBase {
-	action: 'setUser';
-}
-
-interface MessageData extends MessageBase {
-	action: 'message';
-	message: string;
-}
+// Shared message types — imported by both server (ws-manager) and client (Socket)
+export type WsMessage =
+	| {
+			action: 'player_joined';
+			player: { id: string; name: string; isHost: boolean; lobbyId: string };
+	  }
+	| { action: 'player_left'; playerId: string };
 
 export class Socket {
 	#socket: WebSocket;
-	#callbacks: Set<(data: MessageData) => void>;
+	#callbacks: Set<(data: WsMessage) => void>;
 
 	constructor(roomCode: string) {
-		// Init
 		this.#callbacks = new Set();
-		// Setup socket
-		// ✅ same server as SvelteKit, dynamic
+
 		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 		this.#socket = new WebSocket(`${protocol}//${window.location.host}/ws/${roomCode}`);
-		// this.#socket.addEventListener('open', (event) => {
-		// 	const payload: MessageSetUser = { action: 'setUser' };
-		// 	this.#socket.send(JSON.stringify(payload));
-		// });
-		// this.#socket.addEventListener('close', (event) => {
-		// 	console.log('Connection closed');
-		// });
-		// this.#socket.addEventListener('message', (event) => {
-		// 	console.log('Message from server ', event.data);
-		// 	// Parse message
-		// 	const data = JSON.parse(event.data);
-		// 	if (data.action === 'login' && data.token) {
-		// 		this.#token = data.token;
-		// 	} else {
-		// 		this.#callbacks.forEach((callback) => {
-		// 			callback(JSON.parse(event.data));
-		// 		});
-		// 	}
-		// });
+
+		this.#socket.addEventListener('message', (event) => {
+			try {
+				const data = JSON.parse(event.data as string) as WsMessage;
+				this.#callbacks.forEach((cb) => cb(data));
+			} catch (e) {
+				console.error('[ws] failed to parse message', e);
+			}
+		});
+
+		this.#socket.addEventListener('close', () => {
+			console.log(`[ws] disconnected from room ${roomCode}`);
+		});
 	}
 
-	addListener(callback: (data: MessageData) => void) {
+	addListener(callback: (data: WsMessage) => void) {
 		this.#callbacks.add(callback);
 	}
 
-	removeListener(callback: (data: MessageData) => void) {
+	removeListener(callback: (data: WsMessage) => void) {
 		this.#callbacks.delete(callback);
 	}
 
-	sendMessage(message: string) {
-		this.#socket.send(JSON.stringify({ action: 'message', data: message }));
+	close() {
+		this.#socket.close();
 	}
 }

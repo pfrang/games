@@ -59,3 +59,29 @@ export async function set(key: string, value: string, ttl?: number): Promise<str
 	}
 	return redisClient.set(key, value);
 }
+
+/**
+ * Get a value from Redis.
+ * @param key The key to retrieve.
+ * @returns The value associated with the key.
+ */
+export async function get(client: RedisClientType, key: string): Promise<string | null> {
+	if (!key) throw new Error('Key is required');
+	if (!client) throw new Error('Redis client is not initialized');
+	return client.get(key);
+}
+
+/**
+ * Get a JSON value from Redis.
+ * @param key The key to retrieve.
+ * @returns The JSON value associated with the key.
+ */
+export async function getJSON<T>(client: RedisClientType, key: string): Promise<T | null> {
+	const raw = await get(client, key);
+	if (raw == null) return null;
+	try {
+		return JSON.parse(raw) as T;
+	} catch {
+		return null;
+	}
+}

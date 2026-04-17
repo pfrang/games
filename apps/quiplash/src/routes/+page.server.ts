@@ -2,6 +2,7 @@ import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createLobby } from '$lib/db/lobbies/create';
 import { createPlayer } from '$lib/db/players/create';
 import { getRedisClient } from '$lib/redis/cli';
+import { broadcast } from '$lib/server/websocket';
 import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies.js';
 import { set } from '@games/redis';

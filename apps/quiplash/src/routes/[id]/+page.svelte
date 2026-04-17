@@ -1,11 +1,15 @@
 <script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import { Socket, type WsMessage } from '$lib/websocket';
+	import type { Player } from '@games/db/types';
+
 	let { data } = $props();
 
 	let lobby = $derived(data.lobby);
 	let playerCookie = $derived(data.playerCookie);
-
 	let playerId = $derived(playerCookie?.id ?? null);
-	let players = $derived(data.players ?? []);
+
+	let players = $state<Player[]>(data.players ?? []);
 
 	let isPlayerInLobby = $derived(players.some((p) => p.id === playerId));
 
@@ -22,6 +26,34 @@
 			? new Date(lobby.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 			: ''
 	);
+
+	let connection: Socket | null = null;
+
+	function handleMessage(msg: WsMessage) {
+		if (msg.action === 'player_joined') {
+			const newPlayer: Player = {
+				...msg.player,
+				isHost: players.length === 0,
+				joinedAt: new Date()
+			};
+			players = [...players, newPlayer];
+		}
+	}
+
+	onMount(() => {
+		if (lobby?.roomCode && playerCookie) {
+			connection = new Socket(lobby.roomCode);
+			connection.addListener(handleMessage);
+		}
+	});
+
+	onDestroy(() => {
+		if (connection) {
+			connection.removeListener(handleMessage);
+			connection.close();
+			connection = null;
+		}
+	});
 </script>
 
 <div class="container">

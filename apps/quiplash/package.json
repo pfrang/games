@@ -20,7 +20,8 @@
 	},
 	"dependencies": {
 		"@games/db": "workspace:*",
-		"@games/redis": "workspace:*"
+		"@games/redis": "workspace:*",
+		"ws": "^8.20.0"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^5.5.4",
@@ -30,6 +31,7 @@
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/node": "^24",
+		"@types/ws": "^8.18.1",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.5.1",
 		"prettier-plugin-tailwindcss": "^0.7.2",
