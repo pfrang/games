@@ -1,20 +1,22 @@
 {
-  "name": "@pfrang/games",
-  "private": true,
-  "scripts": {
-    "dev": "turbo dev --ui tui",
-    "db:push": "pnpm --filter @games/db db:push",
-    "db:generate": "pnpm --filter @games/db db:generate",
-    "db:migrate": "pnpm --filter @games/db db:migrate",
-    "db:studio": "pnpm --filter @games/db db:studio",
-    "build": "turbo build",
-    "start:quiplash": "pnpm --filter quiplash start:local"
-  },
-  "dependencies": {
-    "@games/db": "workspace:*"
-  },
-  "packageManager": "pnpm@10.25.0",
-  "devDependencies": {
-    "turbo": "^2.9.6"
-  }
+    "name": "@pfrang/games",
+    "private": true,
+    "scripts": {
+        "dev": "turbo dev --ui tui",
+        "db:push": "pnpm --filter @games/db db:push",
+        "db:generate": "pnpm --filter @games/db db:generate",
+        "db:migrate": "pnpm --filter @games/db db:migrate",
+        "db:studio": "pnpm --filter @games/db db:studio",
+        "build": "turbo build",
+        "start:quiplash": "pnpm --filter quiplash start:local",
+        "ts:check": "turbo run ts:check"
+    },
+    "dependencies": {
+        "@games/db": "workspace:*",
+        "@games/redis": "workspace:*"
+    },
+    "packageManager": "pnpm@10.25.0",
+    "devDependencies": {
+        "turbo": "^2.9.6"
+    }
 }

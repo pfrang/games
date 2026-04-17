@@ -1,0 +1,13 @@
+{
+    "name": "@games/redis",
+    "version": "0.0.1",
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts",
+        "./types": "./src/index.ts",
+        "./redis": "./src/redis.ts"
+    },
+    "dependencies": {
+        "redis": "^5.12.1"
+    }
+}

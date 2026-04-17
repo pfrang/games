@@ -15,11 +15,12 @@
 		"lint": "prettier --check .",
 		"format": "prettier --write .",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run"
+		"test": "npm run test:unit -- --run",
+		"ts:check": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@games/db": "workspace:*",
-		"ioredis": "^5.10.1"
+		"@games/redis": "workspace:*"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^5.5.4",
