@@ -37,12 +37,14 @@
 				joinedAt: new Date()
 			};
 			players = [...players, newPlayer];
+		} else if (msg.action === 'player_left') {
+			players = players.filter((p) => p.id !== msg.playerId);
 		}
 	}
 
 	onMount(() => {
 		if (lobby?.roomCode && playerCookie) {
-			connection = new Socket(lobby.roomCode);
+			connection = new Socket(lobby.roomCode, playerCookie.id);
 			connection.addListener(handleMessage);
 		}
 	});

@@ -8,8 +8,9 @@
         "db:migrate": "pnpm --filter @games/db db:migrate",
         "db:studio": "pnpm --filter @games/db db:studio",
         "build": "turbo build",
-        "start:quiplash": "pnpm --filter quiplash start:local",
-        "ts:check": "turbo run ts:check"
+        "start:quiplash": "pnpm --filter quiplash start2:local",
+        "ts:check": "turbo run ts:check",
+        "clean": "turbo run clean"
     },
     "dependencies": {
         "@games/db": "workspace:*",

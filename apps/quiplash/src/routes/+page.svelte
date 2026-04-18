@@ -13,7 +13,7 @@
 
 	onMount(() => {
 		if (playerCookie?.id && playerCookie?.name && !connection) {
-			connection = new Socket(playerCookie.roomCode);
+			connection = new Socket(playerCookie.roomCode, playerCookie.id);
 		}
 	});
 

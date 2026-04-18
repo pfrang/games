@@ -1,8 +1,9 @@
-// Shared message types — imported by both server (ws-manager) and client (Socket)
+import type { Player } from '@games/db/types';
+
 export type WsMessage =
 	| {
 			action: 'player_joined';
-			player: { id: string; name: string; isHost: boolean; lobbyId: string };
+			player: Player;
 	  }
 	| { action: 'player_left'; playerId: string };
 
@@ -10,11 +11,12 @@ export class Socket {
 	#socket: WebSocket;
 	#callbacks: Set<(data: WsMessage) => void>;
 
-	constructor(roomCode: string) {
+	constructor(roomCode: string, playerId: string) {
 		this.#callbacks = new Set();
 
 		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-		this.#socket = new WebSocket(`${protocol}//${window.location.host}/ws/${roomCode}`);
+		const params = new URLSearchParams({ playerId });
+		this.#socket = new WebSocket(`${protocol}//${window.location.host}/ws/${roomCode}?${params}`);
 
 		this.#socket.addEventListener('message', (event) => {
 			try {

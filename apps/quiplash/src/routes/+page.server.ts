@@ -2,10 +2,9 @@ import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createLobby } from '$lib/db/lobbies/create';
 import { createPlayer } from '$lib/db/players/create';
 import { getRedisClient } from '$lib/redis/cli';
-import { broadcast } from '$lib/server/websocket';
 import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies.js';
-import { set } from '@games/redis';
+import { set, setJSON } from '@games/redis';
 import type { Actions } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
 
@@ -44,7 +43,7 @@ export const actions = {
 		try {
 			lobby = await createLobby();
 			player = await createPlayer(lobby.id, playerName, true);
-			await set(client, 'quiplash:lobby:' + lobby.id, JSON.stringify(lobby), 24 * 3600);
+			await setJSON(client, 'quiplash:lobby:' + lobby.id, lobby, 24 * 3600);
 		} catch (e) {
 			console.error(e);
 			return fail(500, { message: 'Could not create room. Try again.' });

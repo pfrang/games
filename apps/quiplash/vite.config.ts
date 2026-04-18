@@ -7,11 +7,12 @@ function webSocketDevPlugin(): Plugin {
 	return {
 		name: 'websocket-dev',
 		configureServer(server) {
-			server.httpServer?.on('upgrade', (request, socket, head) => {
+			server.httpServer?.on('upgrade', async (request, socket, head) => {
 				if (request.url?.startsWith('/ws/')) {
-					import('./src/lib/server/websocket/index.js').then(({ handleUpgrade }) => {
-						handleUpgrade(request, socket as never, head as never);
-					});
+					const { handleUpgrade } = await server.ssrLoadModule(
+						'/src/lib/server/websocket/index.ts'
+					);
+					handleUpgrade(request, socket as never, head as never);
 				}
 			});
 		}
