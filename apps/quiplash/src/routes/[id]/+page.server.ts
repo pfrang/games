@@ -5,7 +5,6 @@ import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createPlayer } from '$lib/db/players/create';
 import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies';
-import { broadcast } from '$lib/server/websocket';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -42,11 +41,6 @@ export const actions = {
 
 		const playerCookie: PlayerCookie = { ...player, roomCode };
 		cookies.set('quiplash-player', JSON.stringify(playerCookie), { path: '/' });
-
-		broadcast(roomCode, {
-			action: 'player_joined',
-			player: playerCookie
-		});
 
 		redirect(302, `/${roomCode}`);
 	}

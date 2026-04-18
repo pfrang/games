@@ -2,7 +2,7 @@ import type { WsMessage } from '$lib/websocket/index';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, WebSocket } from 'ws';
-
+import { getPlayerById } from '$lib/db/players';
 // roomCode → connected clients
 const rooms = new Map<string, Set<WebSocket>>();
 // ws → playerId so we can broadcast player_left on disconnect
@@ -20,6 +20,14 @@ wss.on('connection', (ws: WebSocket, roomCode: string, playerId: string) => {
 	playerIds.set(ws, playerId);
 
 	console.log(`[ws] client joined room ${roomCode} (${rooms.get(roomCode)!.size} total)`);
+
+	if (playerId) {
+		getPlayerById(playerId)
+			.then((player) => {
+				if (player) broadcast(roomCode, { action: 'player_joined', player });
+			})
+			.catch((err) => console.error('[ws] player_joined broadcast failed', err));
+	}
 
 	ws.on('close', () => {
 		const pid = playerIds.get(ws);

@@ -31,12 +31,9 @@
 
 	function handleMessage(msg: WsMessage) {
 		if (msg.action === 'player_joined') {
-			const newPlayer: Player = {
-				...msg.player,
-				isHost: players.length === 0,
-				joinedAt: new Date()
-			};
-			players = [...players, newPlayer];
+			if (!players.some((p) => p.id === msg.player.id)) {
+				players = [...players, msg.player];
+			}
 		} else if (msg.action === 'player_left') {
 			players = players.filter((p) => p.id !== msg.playerId);
 		}

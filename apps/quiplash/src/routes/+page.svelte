@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { Socket } from '$lib/websocket';
 	import { onMount } from 'svelte';
 
 	let { form, data } = $props();
@@ -9,13 +8,12 @@
 	let mode = $state<'join' | 'create'>('join');
 	let loading = $state(false);
 	let clearedOnSubmit = $state(false);
-	let connection: Socket | null = $state(null);
 
-	onMount(() => {
-		if (playerCookie?.id && playerCookie?.name && !connection) {
-			connection = new Socket(playerCookie.roomCode, playerCookie.id);
-		}
-	});
+	// onMount(() => {
+	// 	if (playerCookie?.id && playerCookie?.name && !connection) {
+	// 		connection = new Socket(playerCookie.roomCode, playerCookie.id);
+	// 	}
+	// });
 
 	let visibleError = $derived(clearedOnSubmit ? null : (form?.message ?? null));
 
