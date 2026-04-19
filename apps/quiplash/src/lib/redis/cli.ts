@@ -16,8 +16,8 @@ export function getKey(key: string): string {
 	return `quiplash:${key}`;
 }
 
-export async function getRedisClient(config2?: RedisConfig): Promise<RedisClientType> {
-	const config = config2 || {
+export async function getRedisClient(): Promise<RedisClientType> {
+	const config = {
 		url: env.REDIS_URL,
 		password: env.REDIS_PASSWORD
 		// tls: true
@@ -53,6 +53,7 @@ export async function getRedisClient(config2?: RedisConfig): Promise<RedisClient
  */
 export async function set(key: string, value: string, ttl?: number): Promise<string | null> {
 	if (!key) throw new Error('Key is required');
+	const redisClient = await getRedisClient();
 	if (!redisClient) throw new Error('Redis client is not initialized');
 	if (ttl && ttl > 0) {
 		return redisClient.set(key, value, { EX: ttl });
@@ -65,10 +66,11 @@ export async function set(key: string, value: string, ttl?: number): Promise<str
  * @param key The key to retrieve.
  * @returns The value associated with the key.
  */
-export async function get(client: RedisClientType, key: string): Promise<string | null> {
+export async function get(key: string): Promise<string | null> {
 	if (!key) throw new Error('Key is required');
-	if (!client) throw new Error('Redis client is not initialized');
-	return client.get(key);
+	const redisClient = await getRedisClient();
+	if (!redisClient) throw new Error('Redis client is not initialized');
+	return redisClient.get(key);
 }
 
 /**
@@ -76,12 +78,24 @@ export async function get(client: RedisClientType, key: string): Promise<string 
  * @param key The key to retrieve.
  * @returns The JSON value associated with the key.
  */
-export async function getJSON<T>(client: RedisClientType, key: string): Promise<T | null> {
-	const raw = await get(client, key);
+export async function getJSON<T>(key: string): Promise<T | null> {
+	const raw = await get(key);
 	if (raw == null) return null;
 	try {
 		return JSON.parse(raw) as T;
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Set a JSON value in Redis.
+ * @param key The key to set.
+ * @param value The JSON value to set.
+ * @param ttl The time-to-live for the key (in seconds).
+ * @returns The result of the set command.
+ */
+export async function setJSON<T>(key: string, value: T, ttl?: number): Promise<string | null> {
+	const jsonString = JSON.stringify(value);
+	return set(key, jsonString, ttl);
 }

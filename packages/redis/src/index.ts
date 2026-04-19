@@ -1,4 +1,4 @@
-import { type RedisClientType } from "redis";
+import { createClient, type RedisClientType } from "@games/redis/redis";
 
 export interface RedisConfig {
     url: string;
@@ -6,18 +6,38 @@ export interface RedisConfig {
     tls?: boolean;
 }
 
-/**
- * Get a value from Redis.
- * @param key The key to retrieve.
- * @returns The value associated with the key.
- */
-export async function get(
-    client: RedisClientType,
-    key: string,
-): Promise<string | null> {
-    if (!key) throw new Error("Key is required");
-    if (!client) throw new Error("Redis client is not initialized");
-    return client.get(key);
+// Singleton client + connection promise to prevent concurrent .connect() calls
+let redisClient: RedisClientType | null = null;
+let connectPromise: Promise<RedisClientType> | null = null;
+let _config: RedisConfig | null = null;
+
+export function initRedis(config: RedisConfig) {
+    _config = config;
+}
+
+export async function getRedisClient(): Promise<RedisClientType> {
+    if (!_config)
+        throw new Error("Redis not initialized — call initRedis() first");
+
+    if (redisClient && redisClient.isOpen) return redisClient;
+    if (connectPromise) return connectPromise;
+
+    if (!redisClient) {
+        redisClient = createClient(_config) as RedisClientType;
+
+        redisClient.on("error", (err) => {
+            console.error("Redis Client Error", err);
+        });
+    }
+
+    connectPromise = redisClient
+        .connect()
+        .then(() => redisClient as RedisClientType)
+        .finally(() => {
+            connectPromise = null;
+        });
+
+    return connectPromise;
 }
 
 /**
@@ -28,19 +48,29 @@ export async function get(
  * @returns The result of the set command.
  */
 export async function set(
-    client: RedisClientType,
     key: string,
     value: string,
     ttl?: number,
 ): Promise<string | null> {
     if (!key) throw new Error("Key is required");
-    if (!client) throw new Error("Redis client is not initialized");
+    const redisClient = await getRedisClient();
+    if (!redisClient) throw new Error("Redis client is not initialized");
     if (ttl && ttl > 0) {
-        return client.set(key, value, {
-            expiration: { type: "EX", value: ttl },
-        });
+        return redisClient.set(key, value, { EX: ttl });
     }
-    return client.set(key, value);
+    return redisClient.set(key, value);
+}
+
+/**
+ * Get a value from Redis.
+ * @param key The key to retrieve.
+ * @returns The value associated with the key.
+ */
+export async function get(key: string): Promise<string | null> {
+    if (!key) throw new Error("Key is required");
+    const redisClient = await getRedisClient();
+    if (!redisClient) throw new Error("Redis client is not initialized");
+    return redisClient.get(key);
 }
 
 /**
@@ -48,11 +78,8 @@ export async function set(
  * @param key The key to retrieve.
  * @returns The JSON value associated with the key.
  */
-export async function getJSON<T>(
-    client: RedisClientType,
-    key: string,
-): Promise<T | null> {
-    const raw = await get(client, key);
+export async function getJSON<T>(key: string): Promise<T | null> {
+    const raw = await get(key);
     if (raw == null) return null;
     try {
         return JSON.parse(raw) as T;
@@ -69,11 +96,10 @@ export async function getJSON<T>(
  * @returns The result of the set command.
  */
 export async function setJSON<T>(
-    client: RedisClientType,
     key: string,
     value: T,
     ttl?: number,
 ): Promise<string | null> {
     const jsonString = JSON.stringify(value);
-    return set(client, key, jsonString, ttl);
+    return set(key, jsonString, ttl);
 }
