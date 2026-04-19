@@ -40,20 +40,7 @@ wss.on('connection', (ws: WebSocket, roomCode: string, playerId: string) => {
 	});
 });
 
-declare global {
-	// eslint-disable-next-line no-var
-	var __quiplashBroadcast: ((roomCode: string, message: WsMessage) => void) | undefined;
-}
-
 export function broadcast(roomCode: string, message: WsMessage) {
-	// In production, server.js owns the WebSocket rooms and registers this before
-	// the HTTP server starts accepting requests. In dev, Vite's SSR module graph
-	// shares the same module instance for both the upgrade handler and server
-	// actions, so the local rooms map is correct.
-	if (globalThis.__quiplashBroadcast) {
-		globalThis.__quiplashBroadcast(roomCode, message);
-		return;
-	}
 	const payload = JSON.stringify(message);
 	rooms.get(roomCode)?.forEach((client) => {
 		if (client.readyState === WebSocket.OPEN) {
@@ -61,6 +48,14 @@ export function broadcast(roomCode: string, message: WsMessage) {
 		}
 	});
 }
+
+declare global {
+	var __quiplashHandleUpgrade:
+		| ((request: IncomingMessage, socket: Duplex, head: Buffer) => void)
+		| undefined;
+}
+
+globalThis.__quiplashHandleUpgrade = handleUpgrade;
 
 export function handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer) {
 	const url = new URL(request.url ?? '/', `http://localhost`);

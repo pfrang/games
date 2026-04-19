@@ -1,16 +1,16 @@
 {
-    "name": "@games/redis",
-    "version": "0.0.1",
-    "type": "module",
-    "exports": {
-        ".": "./src/index.ts",
-        "./types": "./src/index.ts",
-        "./redis": "./src/redis.ts"
-    },
-    "scripts": {
-        "dev": "node --env-file=.env cli.mjs"
-    },
-    "dependencies": {
-        "redis": "^5.12.1"
-    }
+  "name": "@games/redis",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./types/index.ts",
+    "./redis": "./src/redis.ts"
+  },
+  "scripts": {
+    "dev": "node --env-file=.env cli.mjs"
+  },
+  "dependencies": {
+    "redis": "^5.12.1"
+  }
 }

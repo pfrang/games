@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { initRedis } from '@games/redis';
+import '$lib/server/websocket';
 import type { Handle } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
