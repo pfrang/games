@@ -6,6 +6,7 @@ import { createPlayer } from '$lib/db/players/create';
 import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies';
 import { getQuestions } from '$lib/db/questions';
+import { startGame } from '$lib/db/lobbies/edit';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -25,7 +26,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 };
 
 export const actions = {
-	default: async ({ request, params, cookies }) => {
+	join: async ({ request, params, cookies }) => {
 		const roomCode = params.id;
 		if (!roomCode) {
 			return fail(400, { roomCode, message: 'Room code is required.' });
@@ -48,5 +49,13 @@ export const actions = {
 		cookies.set('quiplash-player', JSON.stringify(playerCookie), { path: '/' });
 
 		redirect(302, `/${roomCode}`);
+	},
+	start: async ({ request, params, cookies }) => {
+		const roomCode = params.id;
+		if (!roomCode) {
+			return fail(400, { roomCode, message: 'Room code is required.' });
+		}
+
+		await startGame(roomCode);
 	}
 } satisfies Actions;

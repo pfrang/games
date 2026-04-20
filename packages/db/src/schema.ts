@@ -1,9 +1,22 @@
-import { pgTable, text, uuid, boolean, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  uuid,
+  boolean,
+  timestamp,
+  pgEnum,
+} from "drizzle-orm/pg-core";
+
+export const lobbyStatusEnum = pgEnum("lobby_status", [
+  "waiting",
+  "in_progress",
+  "finished",
+]);
 
 export const lobbiesTable = pgTable("lobbies", {
   id: uuid("id").primaryKey().defaultRandom(),
   roomCode: text("room_code").notNull().unique(),
-  status: text("status").notNull().default("waiting"), // 'waiting' | 'in_progress' | 'finished'
+  status: lobbyStatusEnum("status").notNull().default("waiting"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

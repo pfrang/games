@@ -16,7 +16,7 @@
 	let statusLabel = $derived(
 		lobby?.status === 'waiting'
 			? 'WAITING FOR PLAYERS'
-			: lobby?.status === 'playing'
+			: lobby?.status === 'in_progress'
 				? 'IN PROGRESS'
 				: (lobby?.status ?? 'UNKNOWN').toUpperCase()
 	);
@@ -60,29 +60,39 @@
 		<p class="label">ROOM CODE</p>
 		<h1 class="room-code">{lobby?.roomCode ?? '—'}</h1>
 	</div>
+	{#if lobby.status === 'waiting'}
+		<div class="card">
+			<div class="card-inner">
+				<div class="status-row">
+					<span class="status-dot" class:waiting={lobby?.status === 'waiting'}></span>
+					<span class="status-text">{statusLabel}</span>
+				</div>
 
-	<div class="card">
-		<div class="card-inner">
-			<div class="status-row">
-				<span
-					class="status-dot"
-					class:waiting={lobby?.status === 'waiting'}
-					class:playing={lobby?.status === 'playing'}
-				></span>
-				<span class="status-text">{statusLabel}</span>
+				<div class="divider"></div>
+
+				<p class="meta">Created at {createdDate}</p>
 			</div>
-
-			<div class="divider"></div>
-
-			<p class="meta">Created at {createdDate}</p>
 		</div>
-	</div>
 
-	{#if !isPlayerInLobby}
-		<form method="post">
-			<input type="text" name="playerName" placeholder="Enter your name" />
-			<button type="submit">Join</button>
-		</form>
+		{#if !isPlayerInLobby}
+			<form method="post" action="?/join">
+				<input type="text" name="playerName" placeholder="Enter your name" />
+				<button type="submit">Join</button>
+			</form>
+		{/if}
+	{:else if lobby?.status === 'in_progress'}
+		<div class="card">
+			<div class="card-inner">
+				<div class="status-row">
+					<span class="status-dot" class:playing={lobby?.status === 'in_progress'}></span>
+					<span class="status-text">{statusLabel}</span>
+				</div>
+
+				<div class="divider"></div>
+
+				<p class="meta">Game is currently in progress...</p>
+			</div>
+		</div>
 	{/if}
 
 	<div class="players-section">
@@ -105,6 +115,12 @@
 			{/each}
 		</div>
 	</div>
+
+	{#if players.length > 1 && playerCookie?.isHost && lobby?.status === 'waiting'}
+		<form method="POST" action="?/start" class="size-20 bg-white">
+			<button type="submit" name="action" value="start">Start Game</button>
+		</form>
+	{/if}
 </div>
 
 <style>
@@ -118,6 +134,10 @@
 		padding: 2rem 1rem;
 		width: 100%;
 		max-width: 480px;
+	}
+
+	.start-form {
+		margin-top: 1rem;
 	}
 
 	.title-wrap {

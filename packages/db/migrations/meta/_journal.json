@@ -15,6 +15,13 @@
       "when": 1776706572580,
       "tag": "0001_dashing_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776721344228,
+      "tag": "0002_magical_wallow",
+      "breakpoints": true
     }
   ]
 }
