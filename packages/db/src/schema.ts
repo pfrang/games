@@ -16,3 +16,8 @@ export const playersTable = pgTable("players", {
   isHost: boolean("is_host").notNull().default(false),
   joinedAt: timestamp("joined_at").notNull().defaultNow(),
 });
+
+export const questionsTable = pgTable("questions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  questions: text("questions").notNull(),
+});

@@ -8,6 +8,13 @@
       "when": 1776184268538,
       "tag": "0000_conscious_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776706572580,
+      "tag": "0001_dashing_gladiator",
+      "breakpoints": true
     }
   ]
 }

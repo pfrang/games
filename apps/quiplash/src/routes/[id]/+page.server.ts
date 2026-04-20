@@ -5,6 +5,7 @@ import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createPlayer } from '$lib/db/players/create';
 import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies';
+import { getQuestions } from '$lib/db/questions';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -13,13 +14,14 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 
 	if (!lobby) redirect(302, '/');
 
-	const players = await getPlayersByLobbyId(lobby.id);
 	let playerCookie = parseCookie<PlayerCookie>(cookies, 'quiplash-player');
 	if (playerCookie && playerCookie.roomCode !== roomCode) {
 		playerCookie = undefined;
 	}
 
-	return { lobby, players, playerCookie };
+	const [players, questions] = await Promise.all([getPlayersByLobbyId(lobby.id), getQuestions()]);
+
+	return { lobby, players, playerCookie, questions };
 };
 
 export const actions = {

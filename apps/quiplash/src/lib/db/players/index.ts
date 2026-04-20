@@ -11,7 +11,9 @@ export async function getPlayerById(playerId: string) {
 }
 
 export async function getPlayersByLobbyId(lobbyId: string) {
-	return db.query.playersTable.findMany({
+	const players = await db.query.playersTable.findMany({
 		where: eq(playersTable.lobbyId, lobbyId)
 	});
+
+	return players;
 }
