@@ -136,10 +136,6 @@
 		max-width: 480px;
 	}
 
-	.start-form {
-		margin-top: 1rem;
-	}
-
 	.title-wrap {
 		text-align: center;
 	}
