@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Socket, type WsMessage } from '$lib/websocket';
 	import type { Lobby, Player } from '@games/db/types';
+	import Game from './Game.svelte';
 
 	let { data } = $props();
 
@@ -97,7 +98,7 @@
 
 				<div class="divider"></div>
 
-				<p class="meta">Game is currently in progress...</p>
+				<Game />
 			</div>
 		</div>
 	{/if}
