@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { Socket, type WsMessage } from '$lib/websocket';
-	import type { Player } from '@games/db/types';
+	import type { Lobby, Player } from '@games/db/types';
 
 	let { data } = $props();
 
@@ -13,13 +13,18 @@
 
 	let isPlayerInLobby = $derived(players.some((p) => p.id === playerId));
 
-	let statusLabel = $derived(
-		lobby?.status === 'waiting'
-			? 'WAITING FOR PLAYERS'
-			: lobby?.status === 'in_progress'
-				? 'IN PROGRESS'
-				: (lobby?.status ?? 'UNKNOWN').toUpperCase()
-	);
+	function getStatusLabel(status: Lobby['status']): string {
+		switch (status) {
+			case 'waiting':
+				return 'WAITING FOR PLAYERS';
+			case 'in_progress':
+				return 'IN PROGRESS';
+			default:
+				return (status ?? 'UNKNOWN').toUpperCase();
+		}
+	}
+
+	let statusLabel = $derived(getStatusLabel(lobby?.status));
 
 	let createdDate = $derived(
 		lobby?.createdAt
@@ -36,6 +41,8 @@
 			}
 		} else if (msg.action === 'player_left') {
 			players = players.filter((p) => p.id !== msg.playerId);
+		} else if (msg.action === 'game_started') {
+			statusLabel = 'IN PROGRESS';
 		}
 	}
 

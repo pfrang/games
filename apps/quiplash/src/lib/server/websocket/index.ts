@@ -14,7 +14,7 @@ export const startWebsocketServer = async (httpServer: any) => {
 	httpServer.on('upgrade', handleUpgrade);
 };
 
-wss.on('connection', (ws: WebSocket, roomCode: string, playerId: string) => {
+wss.on('connection', async (ws: WebSocket, roomCode: string, playerId: string) => {
 	if (!rooms.has(roomCode)) rooms.set(roomCode, new Set());
 	rooms.get(roomCode)!.add(ws);
 	playerIds.set(ws, playerId);
@@ -22,11 +22,14 @@ wss.on('connection', (ws: WebSocket, roomCode: string, playerId: string) => {
 	console.log(`[ws] client joined room ${roomCode} (${rooms.get(roomCode)!.size} total)`);
 
 	if (playerId) {
-		getPlayerById(playerId)
-			.then((player) => {
-				if (player) broadcast(roomCode, { action: 'player_joined', player });
-			})
-			.catch((err) => console.error('[ws] player_joined broadcast failed', err));
+		try {
+			const player = await getPlayerById(playerId);
+			if (player) {
+				broadcast(roomCode, { action: 'player_joined', player });
+			}
+		} catch (e) {
+			console.error(`Failed to fetch player data for playerId ${playerId}:`, e);
+		}
 	}
 
 	ws.on('close', () => {

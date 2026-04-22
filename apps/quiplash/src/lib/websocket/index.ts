@@ -5,7 +5,8 @@ export type WsMessage =
 			action: 'player_joined';
 			player: Player;
 	  }
-	| { action: 'player_left'; playerId: string };
+	| { action: 'player_left'; playerId: string }
+	| { action: 'game_started' };
 
 export class Socket {
 	#socket: WebSocket;

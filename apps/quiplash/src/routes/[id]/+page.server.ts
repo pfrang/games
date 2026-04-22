@@ -7,6 +7,7 @@ import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies';
 import { getQuestions } from '$lib/db/questions';
 import { startGame } from '$lib/db/lobbies/edit';
+import { broadcast } from '$lib/server/websocket';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -55,6 +56,7 @@ export const actions = {
 		if (!roomCode) {
 			return fail(400, { roomCode, message: 'Room code is required.' });
 		}
+		broadcast(roomCode, { action: 'game_started' });
 
 		await startGame(roomCode);
 	}
