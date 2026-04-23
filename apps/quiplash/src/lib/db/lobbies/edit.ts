@@ -5,13 +5,24 @@ import { getLobbyByRoomCode } from '.';
 
 export async function startGame(roomCode: string) {
 	const lobby = await getLobbyByRoomCode(roomCode);
-	if (!lobby) {
-		throw new Error('Lobby not found');
-	}
+	if (!lobby) throw new Error('Lobby not found');
 
 	const [response] = await db
 		.update(lobbiesTable)
 		.set({ status: 'in_progress' })
+		.where(eq(lobbiesTable.id, lobby.id))
+		.returning();
+
+	return response;
+}
+
+export async function finishGame(roomCode: string) {
+	const lobby = await getLobbyByRoomCode(roomCode);
+	if (!lobby) throw new Error('Lobby not found');
+
+	const [response] = await db
+		.update(lobbiesTable)
+		.set({ status: 'finished' })
 		.where(eq(lobbiesTable.id, lobby.id))
 		.returning();
 

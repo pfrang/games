@@ -1,18 +1,29 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Socket, type WsMessage } from '$lib/websocket';
+	import { Socket, type WsMessage, type GameAnswer } from '$lib/websocket';
 	import type { Lobby, Player } from '@games/db/types';
 	import Game from './Game.svelte';
 
 	let { data } = $props();
 
-	let lobby = $derived(data.lobby);
 	let playerCookie = $derived(data.playerCookie);
 	let playerId = $derived(playerCookie?.id ?? null);
 
 	let players = $state<Player[]>(data.players ?? []);
+	let questions = $derived(data.questions ?? []);
+	let lobbyStatus = $state<Lobby['status']>(data.lobby?.status ?? 'waiting');
+
+	let lobby = $derived({ ...data.lobby, status: lobbyStatus });
 
 	let isPlayerInLobby = $derived(players.some((p) => p.id === playerId));
+
+	// Game state
+	let gameRound = $state<number>(data.currentRound?.roundNumber ?? 0);
+	let gameQuestion = $state<string>(data.currentRound?.question ?? '');
+	let gameEndsAt = $state<string>(data.currentRound?.endsAt ?? '');
+	let hasSubmitted = $state<boolean>(data.hasSubmitted ?? false);
+	let submittedPlayerIds = $state<Set<string>>(new Set());
+	let gameAnswers = $state<GameAnswer[]>(data.gameAnswers ?? []);
 
 	function getStatusLabel(status: Lobby['status']): string {
 		switch (status) {
@@ -20,12 +31,14 @@
 				return 'WAITING FOR PLAYERS';
 			case 'in_progress':
 				return 'IN PROGRESS';
+			case 'finished':
+				return 'FINISHED';
 			default:
-				return (status ?? 'UNKNOWN').toUpperCase();
+				return 'UNKNOWN';
 		}
 	}
 
-	let statusLabel = $derived(getStatusLabel(lobby?.status));
+	let statusLabel = $derived(getStatusLabel(lobbyStatus));
 
 	let createdDate = $derived(
 		lobby?.createdAt
@@ -43,7 +56,23 @@
 		} else if (msg.action === 'player_left') {
 			players = players.filter((p) => p.id !== msg.playerId);
 		} else if (msg.action === 'game_started') {
-			statusLabel = 'IN PROGRESS';
+			lobbyStatus = 'in_progress';
+		} else if (msg.action === 'round_started') {
+			gameRound = msg.round;
+			gameQuestion = msg.question;
+			gameEndsAt = msg.endsAt;
+			hasSubmitted = false;
+			submittedPlayerIds = new Set();
+		} else if (msg.action === 'answer_submitted') {
+			if (msg.round === gameRound) {
+				submittedPlayerIds = new Set([...submittedPlayerIds, msg.playerId]);
+			}
+			if (msg.playerId === playerId) {
+				hasSubmitted = true;
+			}
+		} else if (msg.action === 'game_finished') {
+			lobbyStatus = 'finished';
+			gameAnswers = msg.answers;
 		}
 	}
 
@@ -88,17 +117,28 @@
 				<button type="submit">Join</button>
 			</form>
 		{/if}
-	{:else if lobby?.status === 'in_progress'}
+	{:else if lobby?.status === 'in_progress' || lobby?.status === 'finished'}
 		<div class="card">
 			<div class="card-inner">
 				<div class="status-row">
-					<span class="status-dot" class:playing={lobby?.status === 'in_progress'}></span>
+					<span class="status-dot" class:playing={lobby?.status === 'in_progress'} class:finished={lobby?.status === 'finished'}></span>
 					<span class="status-text">{statusLabel}</span>
 				</div>
 
 				<div class="divider"></div>
 
-				<Game />
+				<Game
+					round={gameRound}
+					question={gameQuestion}
+					endsAt={gameEndsAt}
+					phase={lobbyStatus === 'finished' ? 'finished' : 'answering'}
+					{hasSubmitted}
+					{players}
+					{playerId}
+					{submittedPlayerIds}
+					answers={gameAnswers}
+					onSubmitted={() => { hasSubmitted = true; }}
+				/>
 			</div>
 		</div>
 	{/if}
@@ -233,6 +273,11 @@
 	.status-dot.playing {
 		background: #34d399;
 		box-shadow: 0 0 8px #34d39999;
+	}
+
+	.status-dot.finished {
+		background: #f472b6;
+		box-shadow: 0 0 8px #f472b699;
 	}
 
 	@keyframes blink {

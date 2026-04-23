@@ -6,8 +6,9 @@ import { parseCookie } from '$lib/utils/cookies.js';
 import { getJSON, setJSON } from '@games/redis';
 import type { Actions } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
+import type { PageServerLoad } from './$types';
 
-export const load = async ({ cookies }) => {
+export const load: PageServerLoad = async ({ cookies }) => {
 	const playerCookie = parseCookie<PlayerCookie>(cookies, 'quiplash-player');
 	if (playerCookie) {
 		const lobbyRedis = await getJSON('quiplash:lobby:');

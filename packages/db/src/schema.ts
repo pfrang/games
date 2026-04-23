@@ -5,6 +5,7 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  integer,
 } from "drizzle-orm/pg-core";
 
 export const lobbyStatusEnum = pgEnum("lobby_status", [
@@ -33,4 +34,28 @@ export const playersTable = pgTable("players", {
 export const questionsTable = pgTable("questions", {
   id: uuid("id").primaryKey().defaultRandom(),
   questions: text("questions").notNull(),
+});
+
+export const roundsTable = pgTable("rounds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  lobbyId: uuid("lobby_id")
+    .notNull()
+    .references(() => lobbiesTable.id, { onDelete: "cascade" }),
+  roundNumber: integer("round_number").notNull(),
+  question: text("question").notNull(),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endsAt: timestamp("ends_at").notNull(),
+});
+
+export const answersTable = pgTable("answers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  lobbyId: uuid("lobby_id")
+    .notNull()
+    .references(() => lobbiesTable.id, { onDelete: "cascade" }),
+  playerId: uuid("player_id")
+    .notNull()
+    .references(() => playersTable.id, { onDelete: "cascade" }),
+  roundNumber: integer("round_number").notNull(),
+  answer: text("answer").notNull(),
+  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
 });

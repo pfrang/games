@@ -1,12 +1,20 @@
 import type { Player } from '@games/db/types';
 
+export type GameAnswer = {
+	playerId: string;
+	playerName: string;
+	roundNumber: number;
+	question: string;
+	answer: string;
+};
+
 export type WsMessage =
-	| {
-			action: 'player_joined';
-			player: Player;
-	  }
+	| { action: 'player_joined'; player: Player }
 	| { action: 'player_left'; playerId: string }
-	| { action: 'game_started' };
+	| { action: 'game_started' }
+	| { action: 'round_started'; round: number; question: string; endsAt: string }
+	| { action: 'answer_submitted'; playerId: string; round: number }
+	| { action: 'game_finished'; answers: GameAnswer[] };
 
 export class Socket {
 	#socket: WebSocket;
