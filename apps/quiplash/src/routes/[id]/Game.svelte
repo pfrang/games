@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { Player } from '@games/db/types';
 	import type { GameAnswer } from '$lib/websocket';
+	import GameDone from './GameDone.svelte';
 
 	interface Props {
 		round: number;
@@ -36,9 +37,7 @@
 
 	let timeLeft = $state(ROUND_DURATION);
 
-	let timerColor = $derived(
-		timeLeft > 30 ? '#34d399' : timeLeft > 15 ? '#fbbf24' : '#ef4444'
-	);
+	let timerColor = $derived(timeLeft > 30 ? '#34d399' : timeLeft > 15 ? '#fbbf24' : '#ef4444');
 
 	let timerGlowRgb = $derived(
 		timeLeft > 30 ? '52,211,153' : timeLeft > 15 ? '251,191,36' : '239,68,68'
@@ -54,10 +53,7 @@
 		if (phase === 'finished' || !endsAt) return;
 
 		const update = () => {
-			const remaining = Math.max(
-				0,
-				Math.ceil((new Date(endsAt).getTime() - Date.now()) / 1000)
-			);
+			const remaining = Math.max(0, Math.ceil((new Date(endsAt).getTime() - Date.now()) / 1000));
 			timeLeft = remaining;
 		};
 
@@ -79,40 +75,7 @@
 </script>
 
 {#if phase === 'finished'}
-	<div class="game-over">
-		<div class="go-headline">
-			<span class="go-word">GAME</span>
-			<span class="go-word gradient">OVER</span>
-		</div>
-		<p class="go-sub">thanks for playing</p>
-
-		{#if answersByRound.length > 0}
-			<div class="divider-line"></div>
-			<div class="results">
-				{#each answersByRound as [roundNum, { question: q, entries }]}
-					<div class="round-block">
-						<div class="rb-header">
-							<span class="rb-badge">R{roundNum + 1}</span>
-							<span class="rb-question">{q}</span>
-						</div>
-						<div class="rb-answers">
-							{#each entries as entry}
-								<div class="rb-row" class:mine={entry.playerId === playerId}>
-									<span class="rb-name">{entry.playerName}</span>
-									<span class="rb-answer">{entry.answer}</span>
-									{#if entry.playerId === playerId}
-										<span class="you-tag">YOU</span>
-									{/if}
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<p class="empty-note">No answers were recorded.</p>
-		{/if}
-	</div>
+	<GameDone {answers} {playerId} />
 {:else}
 	<div class="round-indicator">
 		<span class="ri-current">ROUND {round + 1}</span>
@@ -134,14 +97,7 @@
 			</div>
 		{:else}
 			<svg viewBox="0 0 120 120" class="ring-svg">
-				<circle
-					cx="60"
-					cy="60"
-					r={RADIUS}
-					fill="none"
-					stroke="#1a1535"
-					stroke-width="7"
-				/>
+				<circle cx="60" cy="60" r={RADIUS} fill="none" stroke="#1a1535" stroke-width="7" />
 				<circle
 					cx="60"
 					cy="60"
@@ -163,8 +119,8 @@
 					fill={timerColor}
 					font-size="30"
 					font-weight="900"
-					font-family="monospace, Courier New"
-				>{timeLeft}</text>
+					font-family="monospace, Courier New">{timeLeft}</text
+				>
 				<text
 					x="60"
 					y="75"
@@ -174,8 +130,8 @@
 					font-size="8"
 					font-weight="700"
 					font-family="monospace, Courier New"
-					letter-spacing="3"
-				>SEC</text>
+					letter-spacing="3">SEC</text
+				>
 			</svg>
 		{/if}
 	</div>
@@ -193,7 +149,13 @@
 		<div class="locked-state">
 			<div class="locked-badge">
 				<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-					<path d="M2 7.5L5.5 11L12 3.5" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+					<path
+						d="M2 7.5L5.5 11L12 3.5"
+						stroke="#34d399"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
 				</svg>
 				ANSWER LOCKED IN
 			</div>
@@ -204,11 +166,12 @@
 			method="POST"
 			action="?/submit_answer"
 			class="answer-form"
-			use:enhance={() => async ({ result }) => {
-				if (result.type === 'success') {
-					onSubmitted();
-				}
-			}}
+			use:enhance={() =>
+				async ({ result }) => {
+					if (result.type === 'success') {
+						onSubmitted();
+					}
+				}}
 		>
 			<input type="hidden" name="round" value={round} />
 			<input
@@ -278,15 +241,22 @@
 		animation: ring-pulse 0.8s ease-in-out infinite;
 	}
 	@keyframes ring-pulse {
-		0%, 100% { filter: drop-shadow(0 0 14px rgba(var(--glow-rgb), 0.4)); }
-		50%       { filter: drop-shadow(0 0 28px rgba(var(--glow-rgb), 0.85)); }
+		0%,
+		100% {
+			filter: drop-shadow(0 0 14px rgba(var(--glow-rgb), 0.4));
+		}
+		50% {
+			filter: drop-shadow(0 0 28px rgba(var(--glow-rgb), 0.85));
+		}
 	}
 	.ring-svg {
 		width: 100%;
 		height: 100%;
 	}
 	.ring-arc {
-		transition: stroke-dashoffset 0.26s linear, stroke 0.5s ease;
+		transition:
+			stroke-dashoffset 0.26s linear,
+			stroke 0.5s ease;
 	}
 
 	/* Transitioning dots */
@@ -302,11 +272,22 @@
 		background: #a78bfa;
 		animation: t-bounce 1.1s ease-in-out infinite;
 	}
-	.t-dot:nth-child(2) { animation-delay: 0.18s; }
-	.t-dot:nth-child(3) { animation-delay: 0.36s; }
+	.t-dot:nth-child(2) {
+		animation-delay: 0.18s;
+	}
+	.t-dot:nth-child(3) {
+		animation-delay: 0.36s;
+	}
 	@keyframes t-bounce {
-		0%, 100% { transform: translateY(0);    opacity: 0.45; }
-		50%       { transform: translateY(-9px); opacity: 1; }
+		0%,
+		100% {
+			transform: translateY(0);
+			opacity: 0.45;
+		}
+		50% {
+			transform: translateY(-9px);
+			opacity: 1;
+		}
 	}
 
 	/* ── Question card ── */
@@ -320,8 +301,14 @@
 		animation: q-appear 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 	}
 	@keyframes q-appear {
-		from { opacity: 0; transform: translateY(8px); }
-		to   { opacity: 1; transform: translateY(0); }
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 	.question-card::before {
 		content: '';
@@ -367,7 +354,9 @@
 		font-size: 0.95rem;
 		font-family: inherit;
 		outline: none;
-		transition: border-color 0.2s, box-shadow 0.2s;
+		transition:
+			border-color 0.2s,
+			box-shadow 0.2s;
 		box-sizing: border-box;
 	}
 	.answer-field::placeholder {
@@ -388,7 +377,9 @@
 		font-weight: 900;
 		letter-spacing: 0.25em;
 		cursor: pointer;
-		transition: box-shadow 0.2s, transform 0.1s;
+		transition:
+			box-shadow 0.2s,
+			transform 0.1s;
 		box-shadow: 0 4px 18px #7c3aed33;
 	}
 	.send-btn:hover {
@@ -421,8 +412,14 @@
 		animation: badge-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 	}
 	@keyframes badge-in {
-		from { opacity: 0; transform: scale(0.9); }
-		to   { opacity: 1; transform: scale(1); }
+		from {
+			opacity: 0;
+			transform: scale(0.9);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
 	}
 	.locked-sub {
 		font-size: 0.72rem;
@@ -456,7 +453,9 @@
 		font-weight: 600;
 		color: #3a3560;
 		letter-spacing: 0.04em;
-		transition: border-color 0.3s, color 0.3s;
+		transition:
+			border-color 0.3s,
+			color 0.3s;
 	}
 	.track-chip.done {
 		border-color: #34d39930;
@@ -468,7 +467,9 @@
 		border-radius: 50%;
 		background: #2d2b55;
 		flex-shrink: 0;
-		transition: background 0.3s, box-shadow 0.3s;
+		transition:
+			background 0.3s,
+			box-shadow 0.3s;
 	}
 	.track-pip.done {
 		background: #34d399;

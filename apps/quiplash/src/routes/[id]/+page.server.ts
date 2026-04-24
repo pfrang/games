@@ -11,7 +11,6 @@ import { getCurrentRound } from '$lib/db/rounds';
 import { getPlayerAnswerForRound, getAnswersSummary } from '$lib/db/answers';
 import { createAnswer } from '$lib/db/answers/create';
 import type { PageServerLoad } from './$types';
-import { publish, subscribe } from '@games/redis';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -144,8 +143,6 @@ export const actions = {
 			playerId: playerCookie.id,
 			round: roundNumber
 		});
-
-		await publish(`quiplash:lobby:${lobby.id}`, 'PEder joined');
 
 		return { success: true };
 	}
