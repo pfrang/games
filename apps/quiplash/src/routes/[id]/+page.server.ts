@@ -1,4 +1,3 @@
-import type { PageServerLoad } from './$types';
 import { fail, redirect, type Actions } from '@sveltejs/kit';
 import { getPlayersByLobbyId } from '$lib/db/players';
 import { getLobbyByRoomCode } from '$lib/db/lobbies';
@@ -11,6 +10,8 @@ import { broadcast, scheduleGame } from '$lib/server/websocket';
 import { getCurrentRound } from '$lib/db/rounds';
 import { getPlayerAnswerForRound, getAnswersSummary } from '$lib/db/answers';
 import { createAnswer } from '$lib/db/answers/create';
+import type { PageServerLoad } from './$types';
+import { publish, subscribe } from '@games/redis';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -23,10 +24,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 		playerCookie = undefined;
 	}
 
-	const [players, questions] = await Promise.all([
-		getPlayersByLobbyId(lobby.id),
-		getQuestions()
-	]);
+	const [players, questions] = await Promise.all([getPlayersByLobbyId(lobby.id), getQuestions()]);
 
 	if (lobby.status === 'in_progress') {
 		const currentRound = await getCurrentRound(lobby.id);
@@ -50,10 +48,26 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 
 	if (lobby.status === 'finished') {
 		const gameAnswers = await getAnswersSummary(lobby.id);
-		return { lobby, players, playerCookie, questions, currentRound: null, hasSubmitted: false, gameAnswers };
+		return {
+			lobby,
+			players,
+			playerCookie,
+			questions,
+			currentRound: null,
+			hasSubmitted: false,
+			gameAnswers
+		};
 	}
 
-	return { lobby, players, playerCookie, questions, currentRound: null, hasSubmitted: false, gameAnswers: null };
+	return {
+		lobby,
+		players,
+		playerCookie,
+		questions,
+		currentRound: null,
+		hasSubmitted: false,
+		gameAnswers: null
+	};
 };
 
 export const actions = {
@@ -125,7 +139,13 @@ export const actions = {
 			answer: answer.trim()
 		});
 
-		broadcast(roomCode, { action: 'answer_submitted', playerId: playerCookie.id, round: roundNumber });
+		broadcast(roomCode, {
+			action: 'answer_submitted',
+			playerId: playerCookie.id,
+			round: roundNumber
+		});
+
+		await publish(`quiplash:lobby:${lobby.id}`, 'PEder joined');
 
 		return { success: true };
 	}

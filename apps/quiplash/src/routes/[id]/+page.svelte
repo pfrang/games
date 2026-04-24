@@ -2,9 +2,10 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Socket, type WsMessage, type GameAnswer } from '$lib/websocket';
 	import type { Lobby, Player } from '@games/db/types';
+	import type { PageProps } from './$types';
 	import Game from './Game.svelte';
 
-	let { data } = $props();
+	let { data }: PageProps = $props();
 
 	let playerCookie = $derived(data.playerCookie);
 	let playerId = $derived(playerCookie?.id ?? null);
@@ -121,7 +122,11 @@
 		<div class="card">
 			<div class="card-inner">
 				<div class="status-row">
-					<span class="status-dot" class:playing={lobby?.status === 'in_progress'} class:finished={lobby?.status === 'finished'}></span>
+					<span
+						class="status-dot"
+						class:playing={lobby?.status === 'in_progress'}
+						class:finished={lobby?.status === 'finished'}
+					></span>
 					<span class="status-text">{statusLabel}</span>
 				</div>
 
@@ -137,7 +142,9 @@
 					{playerId}
 					{submittedPlayerIds}
 					answers={gameAnswers}
-					onSubmitted={() => { hasSubmitted = true; }}
+					onSubmitted={() => {
+						hasSubmitted = true;
+					}}
 				/>
 			</div>
 		</div>

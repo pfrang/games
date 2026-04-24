@@ -1,9 +1,10 @@
 import { getLobbyByRoomCode } from '$lib/db/lobbies';
 import { createLobby } from '$lib/db/lobbies/create';
+import { env } from '$env/dynamic/private';
 import { createPlayer } from '$lib/db/players/create';
 import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies.js';
-import { getJSON, setJSON } from '@games/redis';
+import { getJSON, initRedis, setJSON, subscribe } from '@games/redis';
 import type { Actions } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
@@ -44,6 +45,9 @@ export const actions = {
 		try {
 			lobby = await createLobby();
 			player = await createPlayer(lobby.id, playerName, true);
+			await subscribe(`quiplash:lobby:${lobby.id}`, (message) => {
+				console.log(message);
+			});
 			await setJSON('quiplash:lobby:' + lobby.id, lobby, 24 * 3600);
 		} catch (e) {
 			console.error(e);
