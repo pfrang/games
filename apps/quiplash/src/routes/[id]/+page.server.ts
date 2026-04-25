@@ -6,11 +6,12 @@ import type { PlayerCookie } from '$lib/types/player';
 import { parseCookie } from '$lib/utils/cookies';
 import { getQuestions } from '$lib/db/questions';
 import { startGame } from '$lib/db/lobbies/edit';
-import { broadcast, scheduleGame } from '$lib/server/websocket';
+import { broadcast } from '$lib/server/websocket';
 import { getCurrentRound } from '$lib/db/rounds';
 import { getPlayerAnswerForRound, getAnswersSummary } from '$lib/db/answers';
 import { createAnswer } from '$lib/db/answers/create';
 import type { PageServerLoad } from './$types';
+import { scheduleGame } from '$lib/server/websocket/game';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;

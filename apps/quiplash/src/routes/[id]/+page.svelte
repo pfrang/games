@@ -11,7 +11,6 @@
 	let playerId = $derived(playerCookie?.id ?? null);
 
 	let players = $state<Player[]>(data.players ?? []);
-	let questions = $derived(data.questions ?? []);
 	let lobbyStatus = $state<Lobby['status']>(data.lobby?.status ?? 'waiting');
 
 	let lobby = $derived({ ...data.lobby, status: lobbyStatus });
