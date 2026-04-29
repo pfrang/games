@@ -8,10 +8,14 @@ import { getQuestions } from '$lib/db/questions';
 import { startGame } from '$lib/db/lobbies/edit';
 import { broadcast } from '$lib/server/websocket';
 import { getCurrentRound } from '$lib/db/rounds';
-import { getPlayerAnswerForRound, getAnswersSummary } from '$lib/db/answers';
+import {
+	getPlayerAnswerForRound,
+	getAnswerCountForRound,
+	getAnswersSummary
+} from '$lib/db/answers';
 import { createAnswer } from '$lib/db/answers/create';
 import type { PageServerLoad } from './$types';
-import { scheduleGame } from '$lib/server/websocket/game';
+import { scheduleGame, startRound, endGame, TOTAL_ROUNDS } from '$lib/server/websocket/game';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
 	const roomCode = params.id;
@@ -144,6 +148,20 @@ export const actions = {
 			playerId: playerCookie.id,
 			round: roundNumber
 		});
+
+		const [players, answerCount] = await Promise.all([
+			getPlayersByLobbyId(lobby.id),
+			getAnswerCountForRound(lobby.id, roundNumber)
+		]);
+
+		if (answerCount >= players.length) {
+			const nextRound = roundNumber + 1;
+			if (nextRound < TOTAL_ROUNDS) {
+				await startRound(roomCode, lobby.id, nextRound);
+			} else {
+				await endGame(roomCode, lobby.id);
+			}
+		}
 
 		return { success: true };
 	}

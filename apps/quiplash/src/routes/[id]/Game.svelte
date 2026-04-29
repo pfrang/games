@@ -6,6 +6,7 @@
 
 	interface Props {
 		round: number;
+		totalRounds: number;
 		question: string;
 		endsAt: string;
 		phase: 'answering' | 'finished';
@@ -14,11 +15,11 @@
 		playerId: string | null;
 		submittedPlayerIds: Set<string>;
 		answers: GameAnswer[];
-		onSubmitted: () => void;
 	}
 
 	let {
 		round,
+		totalRounds,
 		question,
 		endsAt,
 		phase,
@@ -26,11 +27,9 @@
 		players,
 		playerId,
 		submittedPlayerIds,
-		answers,
-		onSubmitted
+		answers
 	}: Props = $props();
 
-	const TOTAL_ROUNDS = 10;
 	const ROUND_DURATION = 60;
 	const RADIUS = 52;
 	const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -52,9 +51,10 @@
 	$effect(() => {
 		if (phase === 'finished' || !endsAt) return;
 
+		const roundEndsAt = new Date(endsAt).getTime();
+
 		const update = () => {
-			const remaining = Math.max(0, Math.ceil((new Date(endsAt).getTime() - Date.now()) / 1000));
-			timeLeft = remaining;
+			timeLeft = Math.max(0, Math.ceil((roundEndsAt - Date.now()) / 1000));
 		};
 
 		update();
@@ -69,7 +69,7 @@
 	<div class="round-indicator">
 		<span class="ri-current">ROUND {round + 1}</span>
 		<span class="ri-slash">/</span>
-		<span class="ri-total">{TOTAL_ROUNDS}</span>
+		<span class="ri-total">{totalRounds}</span>
 	</div>
 
 	<!-- Circular countdown timer -->
@@ -155,12 +155,7 @@
 			method="POST"
 			action="?/submit_answer"
 			class="answer-form"
-			use:enhance={() =>
-				async ({ result }) => {
-					if (result.type === 'success') {
-						onSubmitted();
-					}
-				}}
+			use:enhance
 		>
 			<input type="hidden" name="round" value={round} />
 			<input

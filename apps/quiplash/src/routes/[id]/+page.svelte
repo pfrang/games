@@ -19,6 +19,7 @@
 
 	// Game state
 	let gameRound = $state<number>(data.currentRound?.roundNumber ?? 0);
+	let gameTotalRounds = $state<number>(10);
 	let gameQuestion = $state<string>(data.currentRound?.question ?? '');
 	let gameEndsAt = $state<string>(data.currentRound?.endsAt ?? '');
 	let hasSubmitted = $state<boolean>(data.hasSubmitted ?? false);
@@ -59,6 +60,7 @@
 			lobbyStatus = 'in_progress';
 		} else if (msg.action === 'round_started') {
 			gameRound = msg.round;
+			gameTotalRounds = msg.totalRounds;
 			gameQuestion = msg.question;
 			gameEndsAt = msg.endsAt;
 			hasSubmitted = false;
@@ -133,6 +135,7 @@
 
 				<Game
 					round={gameRound}
+					totalRounds={gameTotalRounds}
 					question={gameQuestion}
 					endsAt={gameEndsAt}
 					phase={lobbyStatus === 'finished' ? 'finished' : 'answering'}
@@ -141,9 +144,6 @@
 					{playerId}
 					{submittedPlayerIds}
 					answers={gameAnswers}
-					onSubmitted={() => {
-						hasSubmitted = true;
-					}}
 				/>
 			</div>
 		</div>

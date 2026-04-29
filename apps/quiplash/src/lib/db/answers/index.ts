@@ -9,6 +9,13 @@ export async function getPlayerAnswerForRound(playerId: string, roundNumber: num
 	});
 }
 
+export async function getAnswerCountForRound(lobbyId: string, roundNumber: number) {
+	const answers = await db.query.answersTable.findMany({
+		where: and(eq(answersTable.lobbyId, lobbyId), eq(answersTable.roundNumber, roundNumber))
+	});
+	return answers.length;
+}
+
 export async function getAnswersSummary(lobbyId: string): Promise<GameAnswer[]> {
 	const [answers, rounds, players] = await Promise.all([
 		db.query.answersTable.findMany({ where: eq(answersTable.lobbyId, lobbyId) }),

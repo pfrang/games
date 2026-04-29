@@ -12,7 +12,7 @@ export type WsMessage =
 	| { action: 'player_joined'; player: Player }
 	| { action: 'player_left'; playerId: string }
 	| { action: 'game_started' }
-	| { action: 'round_started'; round: number; question: string; endsAt: string }
+	| { action: 'round_started'; round: number; question: string; endsAt: string; totalRounds: number }
 	| { action: 'answer_submitted'; playerId: string; round: number }
 	| { action: 'game_finished'; answers: GameAnswer[] };
 

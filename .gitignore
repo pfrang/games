@@ -9,3 +9,5 @@ build
 .turbo
 *.log
 pnpm-debug.log*
+
+.claude*
