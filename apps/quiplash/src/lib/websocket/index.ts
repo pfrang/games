@@ -8,13 +8,38 @@ export type GameAnswer = {
 	answer: string;
 };
 
+export type VotingAnswer = {
+	answerId: string;
+	playerId: string;
+	playerName: string;
+	roundNumber: number;
+	question: string;
+	answer: string;
+};
+
+export type VoteTally = {
+	answerId: string;
+	playerId: string;
+	playerName: string;
+	voteCount: number;
+};
+
+export type ScoreboardEntry = {
+	playerId: string;
+	playerName: string;
+	totalVotes: number;
+};
+
 export type WsMessage =
 	| { action: 'player_joined'; player: Player }
 	| { action: 'player_left'; playerId: string }
 	| { action: 'game_started' }
 	| { action: 'round_started'; round: number; question: string; endsAt: string; totalRounds: number }
 	| { action: 'answer_submitted'; playerId: string; round: number }
-	| { action: 'game_finished'; answers: GameAnswer[] };
+	| { action: 'voting_started'; rounds: number[]; answers: VotingAnswer[]; endsAt: string }
+	| { action: 'vote_submitted'; playerId: string; roundNumber: number }
+	| { action: 'voting_finished'; tallies: VoteTally[] }
+	| { action: 'game_finished'; answers: GameAnswer[]; scoreboard: ScoreboardEntry[] };
 
 export class Socket {
 	#socket: WebSocket;

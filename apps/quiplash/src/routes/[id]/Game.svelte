@@ -1,20 +1,26 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { Player } from '@games/db/types';
-	import type { GameAnswer } from '$lib/websocket';
+	import type { GameAnswer, VotingAnswer, ScoreboardEntry } from '$lib/websocket';
 	import GameDone from './GameDone.svelte';
+	import VotingPhase from './VotingPhase.svelte';
 
 	interface Props {
 		round: number;
 		totalRounds: number;
 		question: string;
 		endsAt: string;
-		phase: 'answering' | 'finished';
+		phase: 'answering' | 'voting' | 'finished';
 		hasSubmitted: boolean;
 		players: Player[];
 		playerId: string | null;
 		submittedPlayerIds: Set<string>;
 		answers: GameAnswer[];
+		scoreboard: ScoreboardEntry[];
+		votingRounds: number[];
+		votingAnswers: VotingAnswer[];
+		votingEndsAt: string;
+		playerVoteCounts: Map<string, number>;
 	}
 
 	let {
@@ -27,7 +33,12 @@
 		players,
 		playerId,
 		submittedPlayerIds,
-		answers
+		answers,
+		scoreboard,
+		votingRounds,
+		votingAnswers,
+		votingEndsAt,
+		playerVoteCounts
 	}: Props = $props();
 
 	const ROUND_DURATION = 60;
@@ -64,7 +75,16 @@
 </script>
 
 {#if phase === 'finished'}
-	<GameDone {answers} {playerId} />
+	<GameDone {answers} {playerId} {scoreboard} />
+{:else if phase === 'voting'}
+	<VotingPhase
+		rounds={votingRounds}
+		answers={votingAnswers}
+		endsAt={votingEndsAt}
+		{players}
+		{playerId}
+		{playerVoteCounts}
+	/>
 {:else}
 	<div class="round-indicator">
 		<span class="ri-current">ROUND {round + 1}</span>

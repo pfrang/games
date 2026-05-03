@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { answersTable, roundsTable, playersTable } from '@games/db';
-import { eq, and } from '@games/db/orm';
-import type { GameAnswer } from '$lib/websocket';
+import { eq, and, inArray } from '@games/db/orm';
+import type { GameAnswer, VotingAnswer } from '$lib/websocket';
 
 export async function getPlayerAnswerForRound(playerId: string, roundNumber: number) {
 	return db.query.answersTable.findFirst({
@@ -14,6 +14,30 @@ export async function getAnswerCountForRound(lobbyId: string, roundNumber: numbe
 		where: and(eq(answersTable.lobbyId, lobbyId), eq(answersTable.roundNumber, roundNumber))
 	});
 	return answers.length;
+}
+
+export async function getAnswersForVoting(lobbyId: string, roundNumbers: number[]): Promise<VotingAnswer[]> {
+	const [answers, rounds, players] = await Promise.all([
+		db.query.answersTable.findMany({
+			where: and(eq(answersTable.lobbyId, lobbyId), inArray(answersTable.roundNumber, roundNumbers))
+		}),
+		db.query.roundsTable.findMany({
+			where: and(eq(roundsTable.lobbyId, lobbyId), inArray(roundsTable.roundNumber, roundNumbers))
+		}),
+		db.query.playersTable.findMany({ where: eq(playersTable.lobbyId, lobbyId) })
+	]);
+
+	const roundMap = new Map(rounds.map((r) => [r.roundNumber, r.question]));
+	const playerMap = new Map(players.map((p) => [p.id, p.name]));
+
+	return answers.map((a) => ({
+		answerId: a.id,
+		playerId: a.playerId,
+		playerName: playerMap.get(a.playerId) ?? 'Unknown',
+		roundNumber: a.roundNumber,
+		question: roundMap.get(a.roundNumber) ?? '',
+		answer: a.answer
+	}));
 }
 
 export async function getAnswersSummary(lobbyId: string): Promise<GameAnswer[]> {

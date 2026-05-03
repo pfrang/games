@@ -25,7 +25,8 @@ export const actions = {
 			return fail(400, { roomCode, message: 'Room code is required.' });
 		}
 
-		const lobby = await getLobbyByRoomCode(roomCode);
+		const lobbyHigher = roomCode.toUpperCase();
+		const lobby = await getLobbyByRoomCode(lobbyHigher);
 
 		if (!lobby) {
 			return fail(400, { roomCode, message: 'Room not found.' });

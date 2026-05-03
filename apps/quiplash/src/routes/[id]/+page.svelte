@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Socket, type WsMessage, type GameAnswer } from '$lib/websocket';
+	import { Socket, type WsMessage, type GameAnswer, type VotingAnswer, type ScoreboardEntry } from '$lib/websocket';
 	import type { Lobby, Player } from '@games/db/types';
 	import type { PageProps } from './$types';
 	import Game from './Game.svelte';
@@ -25,6 +25,18 @@
 	let hasSubmitted = $state<boolean>(data.hasSubmitted ?? false);
 	let submittedPlayerIds = $state<Set<string>>(new Set());
 	let gameAnswers = $state<GameAnswer[]>(data.gameAnswers ?? []);
+	let gameScoreboard = $state<ScoreboardEntry[]>([]);
+
+	// Voting state
+	let isVoting = $state<boolean>(!!data.votingBatch);
+	let votingRounds = $state<number[]>(data.votingBatch?.rounds ?? []);
+	let votingAnswers = $state<VotingAnswer[]>(data.votingBatch?.answers ?? []);
+	let votingEndsAt = $state<string>(data.votingBatch?.endsAt ?? '');
+	let playerVoteCounts = $state<Map<string, number>>(new Map());
+
+	let gamePhase = $derived<'answering' | 'voting' | 'finished'>(
+		lobbyStatus === 'finished' ? 'finished' : isVoting ? 'voting' : 'answering'
+	);
 
 	function getStatusLabel(status: Lobby['status']): string {
 		switch (status) {
@@ -59,6 +71,8 @@
 		} else if (msg.action === 'game_started') {
 			lobbyStatus = 'in_progress';
 		} else if (msg.action === 'round_started') {
+			isVoting = false;
+			playerVoteCounts = new Map();
 			gameRound = msg.round;
 			gameTotalRounds = msg.totalRounds;
 			gameQuestion = msg.question;
@@ -72,9 +86,23 @@
 			if (msg.playerId === playerId) {
 				hasSubmitted = true;
 			}
+		} else if (msg.action === 'voting_started') {
+			isVoting = true;
+			votingRounds = msg.rounds;
+			votingAnswers = msg.answers;
+			votingEndsAt = msg.endsAt;
+			playerVoteCounts = new Map();
+		} else if (msg.action === 'vote_submitted') {
+			playerVoteCounts = new Map([
+				...playerVoteCounts,
+				[msg.playerId, (playerVoteCounts.get(msg.playerId) ?? 0) + 1]
+			]);
+		} else if (msg.action === 'voting_finished') {
+			// Voting ended — round_started or game_finished will follow
 		} else if (msg.action === 'game_finished') {
 			lobbyStatus = 'finished';
 			gameAnswers = msg.answers;
+			gameScoreboard = msg.scoreboard;
 		}
 	}
 
@@ -138,12 +166,17 @@
 					totalRounds={gameTotalRounds}
 					question={gameQuestion}
 					endsAt={gameEndsAt}
-					phase={lobbyStatus === 'finished' ? 'finished' : 'answering'}
+					phase={gamePhase}
 					{hasSubmitted}
 					{players}
 					{playerId}
 					{submittedPlayerIds}
 					answers={gameAnswers}
+					scoreboard={gameScoreboard}
+					{votingRounds}
+					{votingAnswers}
+					{votingEndsAt}
+					{playerVoteCounts}
 				/>
 			</div>
 		</div>

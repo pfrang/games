@@ -59,3 +59,18 @@ export const answersTable = pgTable("answers", {
   answer: text("answer").notNull(),
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
 });
+
+export const votesTable = pgTable("votes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  lobbyId: uuid("lobby_id")
+    .notNull()
+    .references(() => lobbiesTable.id, { onDelete: "cascade" }),
+  voterId: uuid("voter_id")
+    .notNull()
+    .references(() => playersTable.id, { onDelete: "cascade" }),
+  answerId: uuid("answer_id")
+    .notNull()
+    .references(() => answersTable.id, { onDelete: "cascade" }),
+  roundNumber: integer("round_number").notNull(),
+  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+});
