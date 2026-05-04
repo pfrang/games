@@ -22,9 +22,34 @@ export async function finishGame(roomCode: string) {
 
 	const [response] = await db
 		.update(lobbiesTable)
-		.set({ status: 'finished' })
+		.set({ status: 'finished', questionsOrder: null, votingEndsAt: null, votingRounds: null })
 		.where(eq(lobbiesTable.id, lobby.id))
 		.returning();
 
 	return response;
+}
+
+export async function saveGameQuestions(roomCode: string, questions: string[]) {
+	await db
+		.update(lobbiesTable)
+		.set({ questionsOrder: JSON.stringify(questions) })
+		.where(eq(lobbiesTable.roomCode, roomCode));
+}
+
+export async function saveVotingPhase(
+	roomCode: string,
+	roundNumbers: number[],
+	endsAt: Date
+) {
+	await db
+		.update(lobbiesTable)
+		.set({ votingEndsAt: endsAt, votingRounds: JSON.stringify(roundNumbers) })
+		.where(eq(lobbiesTable.roomCode, roomCode));
+}
+
+export async function clearVotingPhase(roomCode: string) {
+	await db
+		.update(lobbiesTable)
+		.set({ votingEndsAt: null, votingRounds: null })
+		.where(eq(lobbiesTable.roomCode, roomCode));
 }

@@ -1,43 +1,46 @@
 import { createRound } from '$lib/db/rounds/create';
-import { finishGame } from '$lib/db/lobbies/edit';
+import { finishGame, saveGameQuestions, saveVotingPhase, clearVotingPhase } from '$lib/db/lobbies/edit';
+import { getLobbyByRoomCode, getInProgressLobbies } from '$lib/db/lobbies';
 import { getAnswersSummary, getAnswersForVoting } from '$lib/db/answers';
 import { getVotesForBatch, getScoreboard } from '$lib/db/votes';
 import { broadcast } from '.';
-import type { VotingAnswer, VoteTally } from '$lib/websocket';
+import type { VoteTally } from '$lib/websocket';
 
 export const ROUND_DURATION_MS = 60_000;
 export const TOTAL_ROUNDS = 10;
 export const ROUNDS_PER_VOTING_BATCH = 3;
 
-interface VotingBatch {
-	roundNumbers: number[];
-	endsAt: Date;
-	timer: ReturnType<typeof setTimeout>;
-	answers: VotingAnswer[];
-}
+// The only state that cannot be stored in the DB — setTimeout handles.
+const votingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-// roomCode → shuffled question list for the game
-const gameQuestions = new Map<string, string[]>();
-// roomCode → active voting batch
-const votingBatches = new Map<string, VotingBatch>();
+export async function getVotingBatch(roomCode: string) {
+	const lobby = await getLobbyByRoomCode(roomCode);
+	if (!lobby?.votingEndsAt || !lobby.votingRounds) return null;
 
-export function getVotingBatch(roomCode: string) {
-	return votingBatches.get(roomCode) ?? null;
+	const roundNumbers = JSON.parse(lobby.votingRounds) as number[];
+	const answers = await getAnswersForVoting(lobby.id, roundNumbers);
+
+	return {
+		roundNumbers,
+		endsAt: lobby.votingEndsAt,
+		answers
+	};
 }
 
 export function isVotingActive(roomCode: string) {
-	return votingBatches.has(roomCode);
+	return votingTimers.has(roomCode);
 }
 
 export async function scheduleGame(roomCode: string, lobbyId: string, questions: string[]) {
-	gameQuestions.set(roomCode, questions);
+	await saveGameQuestions(roomCode, questions);
 	await startRound(roomCode, lobbyId, 0);
 }
 
 export async function startRound(roomCode: string, lobbyId: string, roundNumber: number) {
-	const questions = gameQuestions.get(roomCode);
-	if (!questions) return;
+	const lobby = await getLobbyByRoomCode(roomCode);
+	if (!lobby?.questionsOrder) return;
 
+	const questions = JSON.parse(lobby.questionsOrder) as string[];
 	const question = questions[roundNumber];
 	const endsAt = new Date(Date.now() + ROUND_DURATION_MS);
 
@@ -58,11 +61,8 @@ export async function startVoting(roomCode: string, lobbyId: string, roundNumber
 	const endsAt = new Date(Date.now() + ROUND_DURATION_MS);
 	const answers = await getAnswersForVoting(lobbyId, roundNumbers);
 
-	const timer = setTimeout(async () => {
-		await endVoting(roomCode, lobbyId);
-	}, ROUND_DURATION_MS);
-
-	votingBatches.set(roomCode, { roundNumbers, endsAt, timer, answers });
+	await saveVotingPhase(roomCode, roundNumbers, endsAt);
+	armVotingTimer(roomCode, lobbyId, endsAt);
 
 	broadcast(roomCode, {
 		action: 'voting_started',
@@ -75,16 +75,25 @@ export async function startVoting(roomCode: string, lobbyId: string, roundNumber
 }
 
 export async function endVoting(roomCode: string, lobbyId: string) {
-	const batch = votingBatches.get(roomCode);
-	if (!batch) return;
+	const timer = votingTimers.get(roomCode);
+	if (timer === undefined) return;
 
-	clearTimeout(batch.timer);
-	votingBatches.delete(roomCode);
+	clearTimeout(timer);
+	votingTimers.delete(roomCode);
 
-	const votes = await getVotesForBatch(lobbyId, batch.roundNumbers);
+	const lobby = await getLobbyByRoomCode(roomCode);
+	if (!lobby?.votingRounds) return;
+
+	const roundNumbers = JSON.parse(lobby.votingRounds) as number[];
+	const [votes, answers] = await Promise.all([
+		getVotesForBatch(lobbyId, roundNumbers),
+		getAnswersForVoting(lobbyId, roundNumbers)
+	]);
+
+	await clearVotingPhase(roomCode);
 
 	const tallyMap = new Map<string, VoteTally>();
-	for (const a of batch.answers) {
+	for (const a of answers) {
 		tallyMap.set(a.answerId, {
 			answerId: a.answerId,
 			playerId: a.playerId,
@@ -102,7 +111,7 @@ export async function endVoting(roomCode: string, lobbyId: string) {
 		tallies: [...tallyMap.values()]
 	});
 
-	const lastRound = Math.max(...batch.roundNumbers);
+	const lastRound = Math.max(...roundNumbers);
 	const nextRound = lastRound + 1;
 
 	if (nextRound < TOTAL_ROUNDS) {
@@ -111,11 +120,10 @@ export async function endVoting(roomCode: string, lobbyId: string) {
 		await endGame(roomCode, lobbyId);
 	}
 
-	console.log(`[game] room ${roomCode} — voting ended for rounds [${batch.roundNumbers.join(', ')}]`);
+	console.log(`[game] room ${roomCode} — voting ended for rounds [${roundNumbers.join(', ')}]`);
 }
 
 export async function endGame(roomCode: string, lobbyId: string) {
-	gameQuestions.delete(roomCode);
 	await finishGame(roomCode);
 	const [answers, scoreboard] = await Promise.all([
 		getAnswersSummary(lobbyId),
@@ -123,4 +131,30 @@ export async function endGame(roomCode: string, lobbyId: string) {
 	]);
 	broadcast(roomCode, { action: 'game_finished', answers, scoreboard });
 	console.log(`[game] room ${roomCode} — game finished`);
+}
+
+function armVotingTimer(roomCode: string, lobbyId: string, endsAt: Date) {
+	const msLeft = Math.max(0, endsAt.getTime() - Date.now());
+	const timer = setTimeout(async () => {
+		await endVoting(roomCode, lobbyId);
+	}, msLeft);
+	votingTimers.set(roomCode, timer);
+}
+
+export async function recoverGames() {
+	const lobbies = await getInProgressLobbies();
+	if (lobbies.length === 0) return;
+
+	console.log(`[game] recovering ${lobbies.length} in-progress game(s)`);
+
+	for (const lobby of lobbies) {
+		if (!lobby.votingEndsAt || !lobby.votingRounds) continue;
+
+		const msLeft = Math.max(0, lobby.votingEndsAt.getTime() - Date.now());
+		armVotingTimer(lobby.roomCode, lobby.id, lobby.votingEndsAt);
+
+		console.log(
+			`[game] recovered voting for room ${lobby.roomCode} (${Math.round(msLeft / 1000)}s left)`
+		);
+	}
 }

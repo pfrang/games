@@ -19,6 +19,9 @@ export const lobbiesTable = pgTable("lobbies", {
   roomCode: text("room_code").notNull().unique(),
   status: lobbyStatusEnum("status").notNull().default("waiting"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  questionsOrder: text("questions_order"), // JSON: string[] — shuffled question list for the active game
+  votingEndsAt: timestamp("voting_ends_at"), // null when no voting phase is active
+  votingRounds: text("voting_rounds"), // JSON: number[] — round numbers in the active voting batch
 });
 
 export const playersTable = pgTable("players", {

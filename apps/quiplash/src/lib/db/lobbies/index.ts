@@ -3,9 +3,13 @@ import { lobbiesTable } from '@games/db';
 import { eq } from '@games/db/orm';
 
 export async function getLobbyByRoomCode(roomCode: string) {
-	const lobby = await db.query.lobbiesTable.findFirst({
+	return db.query.lobbiesTable.findFirst({
 		where: eq(lobbiesTable.roomCode, roomCode)
 	});
+}
 
-	return lobby;
+export async function getInProgressLobbies() {
+	return db.query.lobbiesTable.findMany({
+		where: eq(lobbiesTable.status, 'in_progress')
+	});
 }

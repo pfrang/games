@@ -43,7 +43,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 
 	if (lobby.status === 'in_progress') {
 		// Check if there's an active voting batch
-		const votingBatch = getVotingBatch(roomCode);
+		const votingBatch = await getVotingBatch(roomCode);
 		if (votingBatch) {
 			return {
 				lobby,
@@ -227,7 +227,7 @@ export const actions = {
 		const lobby = await getLobbyByRoomCode(roomCode);
 		if (!lobby) return fail(400, { message: 'Room not found.' });
 
-		const batch = getVotingBatch(roomCode);
+		const batch = await getVotingBatch(roomCode);
 		if (!batch) return fail(400, { message: 'No active voting.' });
 
 		const targetAnswer = batch.answers.find((a) => a.answerId === answerId);
