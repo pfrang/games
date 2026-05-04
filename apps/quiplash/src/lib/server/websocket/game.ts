@@ -1,4 +1,5 @@
 import { createRound } from '$lib/db/rounds/create';
+import { getCurrentRound } from '$lib/db/rounds';
 import { finishGame, saveGameQuestions, saveVotingPhase, clearVotingPhase } from '$lib/db/lobbies/edit';
 import { getLobbyByRoomCode, getInProgressLobbies } from '$lib/db/lobbies';
 import { getAnswersSummary, getAnswersForVoting } from '$lib/db/answers';
@@ -11,7 +12,12 @@ export const TOTAL_ROUNDS = 10;
 export const ROUNDS_PER_VOTING_BATCH = 3;
 
 // The only state that cannot be stored in the DB — setTimeout handles.
+const roundTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const votingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+export function isVotingActive(roomCode: string) {
+	return votingTimers.has(roomCode);
+}
 
 export async function getVotingBatch(roomCode: string) {
 	const lobby = await getLobbyByRoomCode(roomCode);
@@ -20,15 +26,7 @@ export async function getVotingBatch(roomCode: string) {
 	const roundNumbers = JSON.parse(lobby.votingRounds) as number[];
 	const answers = await getAnswersForVoting(lobby.id, roundNumbers);
 
-	return {
-		roundNumbers,
-		endsAt: lobby.votingEndsAt,
-		answers
-	};
-}
-
-export function isVotingActive(roomCode: string) {
-	return votingTimers.has(roomCode);
+	return { roundNumbers, endsAt: lobby.votingEndsAt, answers };
 }
 
 export async function scheduleGame(roomCode: string, lobbyId: string, questions: string[]) {
@@ -45,6 +43,7 @@ export async function startRound(roomCode: string, lobbyId: string, roundNumber:
 	const endsAt = new Date(Date.now() + ROUND_DURATION_MS);
 
 	await createRound({ lobbyId, roundNumber, question, endsAt });
+	armRoundTimer(roomCode, lobbyId, roundNumber, endsAt);
 
 	broadcast(roomCode, {
 		action: 'round_started',
@@ -55,6 +54,37 @@ export async function startRound(roomCode: string, lobbyId: string, roundNumber:
 	});
 
 	console.log(`[game] room ${roomCode} — round ${roundNumber + 1}/${TOTAL_ROUNDS} started`);
+}
+
+// Called when all players have submitted answers before the round timer expires.
+export async function advanceFromRound(roomCode: string, lobbyId: string, roundNumber: number) {
+	clearTimeout(roundTimers.get(roomCode));
+	roundTimers.delete(roomCode);
+	await triggerRoundEnd(roomCode, lobbyId, roundNumber);
+}
+
+async function expireRound(roomCode: string, lobbyId: string, roundNumber: number) {
+	roundTimers.delete(roomCode);
+
+	// Guard: all players submitted in time and the game already advanced.
+	if (isVotingActive(roomCode)) return;
+	const currentRound = await getCurrentRound(lobbyId);
+	if (!currentRound || currentRound.roundNumber !== roundNumber) return;
+
+	await triggerRoundEnd(roomCode, lobbyId, roundNumber);
+}
+
+async function triggerRoundEnd(roomCode: string, lobbyId: string, roundNumber: number) {
+	const nextRound = roundNumber + 1;
+	const isBatchEnd = nextRound % ROUNDS_PER_VOTING_BATCH === 0 || nextRound >= TOTAL_ROUNDS;
+
+	if (isBatchEnd) {
+		const batchStart = Math.floor(roundNumber / ROUNDS_PER_VOTING_BATCH) * ROUNDS_PER_VOTING_BATCH;
+		const batchRounds = Array.from({ length: roundNumber - batchStart + 1 }, (_, i) => batchStart + i);
+		await startVoting(roomCode, lobbyId, batchRounds);
+	} else {
+		await startRound(roomCode, lobbyId, nextRound);
+	}
 }
 
 export async function startVoting(roomCode: string, lobbyId: string, roundNumbers: number[]) {
@@ -106,10 +136,7 @@ export async function endVoting(roomCode: string, lobbyId: string) {
 		if (tally) tally.voteCount++;
 	}
 
-	broadcast(roomCode, {
-		action: 'voting_finished',
-		tallies: [...tallyMap.values()]
-	});
+	broadcast(roomCode, { action: 'voting_finished', tallies: [...tallyMap.values()] });
 
 	const lastRound = Math.max(...roundNumbers);
 	const nextRound = lastRound + 1;
@@ -133,6 +160,19 @@ export async function endGame(roomCode: string, lobbyId: string) {
 	console.log(`[game] room ${roomCode} — game finished`);
 }
 
+function armRoundTimer(
+	roomCode: string,
+	lobbyId: string,
+	roundNumber: number,
+	endsAt: Date
+) {
+	const msLeft = Math.max(0, endsAt.getTime() - Date.now());
+	const timer = setTimeout(async () => {
+		await expireRound(roomCode, lobbyId, roundNumber);
+	}, msLeft);
+	roundTimers.set(roomCode, timer);
+}
+
 function armVotingTimer(roomCode: string, lobbyId: string, endsAt: Date) {
 	const msLeft = Math.max(0, endsAt.getTime() - Date.now());
 	const timer = setTimeout(async () => {
@@ -148,13 +188,17 @@ export async function recoverGames() {
 	console.log(`[game] recovering ${lobbies.length} in-progress game(s)`);
 
 	for (const lobby of lobbies) {
-		if (!lobby.votingEndsAt || !lobby.votingRounds) continue;
-
-		const msLeft = Math.max(0, lobby.votingEndsAt.getTime() - Date.now());
-		armVotingTimer(lobby.roomCode, lobby.id, lobby.votingEndsAt);
-
-		console.log(
-			`[game] recovered voting for room ${lobby.roomCode} (${Math.round(msLeft / 1000)}s left)`
-		);
+		if (lobby.votingEndsAt && lobby.votingRounds) {
+			const msLeft = Math.max(0, lobby.votingEndsAt.getTime() - Date.now());
+			armVotingTimer(lobby.roomCode, lobby.id, lobby.votingEndsAt);
+			console.log(`[game] recovered voting for room ${lobby.roomCode} (${Math.round(msLeft / 1000)}s left)`);
+		} else {
+			const currentRound = await getCurrentRound(lobby.id);
+			if (currentRound) {
+				const msLeft = Math.max(0, currentRound.endsAt.getTime() - Date.now());
+				armRoundTimer(lobby.roomCode, lobby.id, currentRound.roundNumber, currentRound.endsAt);
+				console.log(`[game] recovered round ${currentRound.roundNumber} for room ${lobby.roomCode} (${Math.round(msLeft / 1000)}s left)`);
+			}
+		}
 	}
 }

@@ -19,13 +19,10 @@ import { createVote } from '$lib/db/votes/create';
 import type { PageServerLoad } from './$types';
 import {
 	scheduleGame,
-	startRound,
-	startVoting,
+	advanceFromRound,
 	endVoting,
-	endGame,
 	getVotingBatch,
-	TOTAL_ROUNDS,
-	ROUNDS_PER_VOTING_BATCH
+	TOTAL_ROUNDS
 } from '$lib/server/websocket/game';
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
@@ -188,21 +185,7 @@ export const actions = {
 		]);
 
 		if (answerCount >= players.length) {
-			const nextRound = roundNumber + 1;
-			const isBatchEnd =
-				nextRound % ROUNDS_PER_VOTING_BATCH === 0 || nextRound >= TOTAL_ROUNDS;
-
-			if (isBatchEnd) {
-				const batchStart =
-					Math.floor(roundNumber / ROUNDS_PER_VOTING_BATCH) * ROUNDS_PER_VOTING_BATCH;
-				const batchRounds = Array.from(
-					{ length: roundNumber - batchStart + 1 },
-					(_, i) => batchStart + i
-				);
-				await startVoting(roomCode, lobby.id, batchRounds);
-			} else {
-				await startRound(roomCode, lobby.id, nextRound);
-			}
+			await advanceFromRound(roomCode, lobby.id, roundNumber);
 		}
 
 		return { success: true };
