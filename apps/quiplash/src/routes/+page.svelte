@@ -9,12 +9,6 @@
 	let loading = $state(false);
 	let clearedOnSubmit = $state(false);
 
-	// onMount(() => {
-	// 	if (playerCookie?.id && playerCookie?.name && !connection) {
-	// 		connection = new Socket(playerCookie.roomCode, playerCookie.id);
-	// 	}
-	// });
-
 	let visibleError = $derived(clearedOnSubmit ? null : (form?.message ?? null));
 
 	function switchMode(next: 'join' | 'create') {
@@ -33,116 +27,99 @@
 	{#if playerCookie?.roomCode}
 		<div class="rejoin-banner">
 			<p class="rejoin-text">
-				You're already in a game · <span class="rejoin-code">{playerCookie.roomCode}</span>
+				You're already in a game · <strong class="rejoin-code">{playerCookie.roomCode}</strong>
 			</p>
-			<a href="/{playerCookie.roomCode}" class="join-btn rejoin-btn">
-				<span>BACK TO GAME</span>
-			</a>
+			<a href="/{playerCookie.roomCode}" class="rejoin-btn">BACK TO GAME →</a>
 		</div>
 	{/if}
+
 	<div class="card">
-		<div class="card-inner">
-			<div class="toggle">
-				<button
-					type="button"
-					class="toggle-btn"
-					class:active={mode === 'join'}
-					onclick={() => switchMode('join')}>JOIN</button
-				>
-				<button
-					type="button"
-					class="toggle-btn"
-					class:active={mode === 'create'}
-					onclick={() => switchMode('create')}>CREATE</button
-				>
-				<div
-					class="toggle-pill"
-					style:transform={mode === 'create' ? 'translateX(100%)' : 'translateX(0)'}
-				></div>
-			</div>
-
-			{#if mode === 'join'}
-				<form
-					method="POST"
-					action="?/join"
-					use:enhance={() => {
-						loading = true;
-						clearedOnSubmit = true;
-						return async ({ update }) => {
-							try {
-								await update({ reset: false });
-							} finally {
-								clearedOnSubmit = false;
-								loading = false;
-							}
-						};
-					}}
-					class="game-form"
-				>
-					<div class="input-wrap">
-						<input
-							type="text"
-							name="roomCode"
-							placeholder="ENTER ROOM CODE"
-							autocomplete="off"
-							spellcheck="false"
-							maxlength="8"
-							disabled={loading}
-						/>
-					</div>
-
-					<div class="error-wrap">
-						{#if visibleError}
-							<p class="error">{visibleError}</p>
-						{/if}
-					</div>
-
-					<button type="submit" class="join-btn" disabled={loading}>
-						<span>{loading ? 'JOINING...' : "LET'S GO!"}</span>
-					</button>
-				</form>
-			{:else}
-				<form
-					method="POST"
-					action="?/create"
-					use:enhance={() => {
-						loading = true;
-						clearedOnSubmit = true;
-						return async ({ update }) => {
-							try {
-								await update({ reset: false });
-							} finally {
-								clearedOnSubmit = false;
-								loading = false;
-							}
-						};
-					}}
-					class="game-form"
-				>
-					<div class="input-wrap">
-						<input
-							type="text"
-							name="playerName"
-							placeholder="YOUR NAME"
-							autocomplete="off"
-							spellcheck="false"
-							maxlength="20"
-							disabled={loading}
-						/>
-					</div>
-
-					<div class="error-wrap">
-						{#if visibleError}
-							<p class="error">{visibleError}</p>
-						{/if}
-					</div>
-
-					<button type="submit" class="join-btn create" disabled={loading}>
-						<span>{loading ? 'CREATING...' : 'CREATE ROOM'}</span>
-					</button>
-				</form>
-			{/if}
+		<div class="toggle">
+			<button
+				type="button"
+				class="toggle-btn"
+				class:active={mode === 'join'}
+				onclick={() => switchMode('join')}
+			>JOIN</button>
+			<button
+				type="button"
+				class="toggle-btn"
+				class:active={mode === 'create'}
+				onclick={() => switchMode('create')}
+			>CREATE</button>
 		</div>
+
+		{#if mode === 'join'}
+			<form
+				method="POST"
+				action="?/join"
+				use:enhance={() => {
+					loading = true;
+					clearedOnSubmit = true;
+					return async ({ update }) => {
+						try {
+							await update({ reset: false });
+						} finally {
+							clearedOnSubmit = false;
+							loading = false;
+						}
+					};
+				}}
+				class="game-form"
+			>
+				<input
+					type="text"
+					name="roomCode"
+					placeholder="ROOM CODE"
+					autocomplete="off"
+					spellcheck="false"
+					maxlength="8"
+					disabled={loading}
+					class="game-input"
+				/>
+				<div class="error-row">
+					{#if visibleError}<p class="error">{visibleError}</p>{/if}
+				</div>
+				<button type="submit" class="btn-primary" disabled={loading}>
+					{loading ? 'JOINING...' : "LET'S GO!"}
+				</button>
+			</form>
+		{:else}
+			<form
+				method="POST"
+				action="?/create"
+				use:enhance={() => {
+					loading = true;
+					clearedOnSubmit = true;
+					return async ({ update }) => {
+						try {
+							await update({ reset: false });
+						} finally {
+							clearedOnSubmit = false;
+							loading = false;
+						}
+					};
+				}}
+				class="game-form"
+			>
+				<input
+					type="text"
+					name="playerName"
+					placeholder="YOUR NAME"
+					autocomplete="off"
+					spellcheck="false"
+					maxlength="20"
+					disabled={loading}
+					class="game-input"
+				/>
+				<div class="error-row">
+					{#if visibleError}<p class="error">{visibleError}</p>{/if}
+				</div>
+				<button type="submit" class="btn-primary btn-create" disabled={loading}>
+					{loading ? 'CREATING...' : 'CREATE ROOM'}
+				</button>
+			</form>
+		{/if}
 	</div>
 
 	<p class="hint">
@@ -153,289 +130,241 @@
 </div>
 
 <style>
-	.error-wrap {
-		width: 100%;
-		text-align: center;
-		height: 30px;
-	}
-
-	/* ---------- rejoin banner ---------- */
-	.rejoin-banner {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 1rem;
-		padding: 1.25rem 1.5rem;
-		border-radius: 16px;
-		border: 1.5px solid #a78bfa55;
-		background: linear-gradient(135deg, #1a1040 0%, #13132a 100%);
-		box-shadow: 0 0 30px #a78bfa22;
-		text-align: center;
-	}
-
-	.rejoin-text {
-		color: #c4b5fd;
-		font-size: 0.9rem;
-		font-weight: 600;
-		letter-spacing: 0.1em;
-	}
-
-	.rejoin-code {
-		color: #f0abfc;
-		font-weight: 800;
-		letter-spacing: 0.25em;
-	}
-
-	.rejoin-btn {
-		padding: 0.7rem 2rem;
-		font-size: 0.9rem;
-	}
-
 	.container {
-		position: relative;
-		z-index: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 2rem;
-		padding: 2rem 1rem;
+		gap: 1.75rem;
 		width: 100%;
-		max-width: 480px;
+		max-width: 460px;
 	}
 
-	/* ---------- title ---------- */
+	/* ── Title ── */
 	.title-wrap {
 		text-align: center;
 	}
 
 	.title {
-		font-size: clamp(3rem, 12vw, 5.5rem);
-		font-weight: 900;
-		letter-spacing: 0.08em;
+		font-family: 'Bangers', cursive;
+		font-size: clamp(4rem, 16vw, 6.5rem);
+		letter-spacing: 0.1em;
 		line-height: 1;
-		background: linear-gradient(135deg, #f9a8d4 0%, #a78bfa 40%, #60a5fa 80%);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-		filter: drop-shadow(0 0 24px #a78bfa88);
-		animation: pulse-glow 3s ease-in-out infinite;
+		color: #ffd60a;
+		-webkit-text-stroke: 3px #1a1a1a;
+		paint-order: stroke fill;
+		display: inline-block;
+		animation: title-wobble 3.5s ease-in-out infinite;
 	}
 
-	@keyframes pulse-glow {
+	@keyframes title-wobble {
 		0%,
 		100% {
-			filter: drop-shadow(0 0 18px #a78bfa88);
+			transform: rotate(-1.5deg) scale(1);
 		}
 		50% {
-			filter: drop-shadow(0 0 36px #a78bfacc);
+			transform: rotate(1.5deg) scale(1.025);
 		}
 	}
 
 	.subtitle {
 		margin-top: 0.5rem;
-		font-size: 0.85rem;
-		letter-spacing: 0.18em;
+		font-size: 0.82rem;
+		font-weight: 800;
+		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: #7c6fa0;
+		color: #7a6a4f;
 	}
 
-	/* ---------- card ---------- */
-	.card {
+	/* ── Rejoin banner ── */
+	.rejoin-banner {
 		width: 100%;
-		border-radius: 20px;
-		padding: 2px;
-		background: linear-gradient(135deg, #a78bfa55, #f472b655, #60a5fa55);
-		box-shadow:
-			0 8px 40px #0007,
-			0 0 60px #a78bfa22;
-		animation: card-float 4s ease-in-out infinite;
-	}
-
-	@keyframes card-float {
-		0%,
-		100% {
-			transform: translateY(0);
-		}
-		50% {
-			transform: translateY(-6px);
-		}
-	}
-
-	.card-inner {
-		background: #13132a;
-		border-radius: 18px;
-		padding: 2.5rem 2rem;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 1.75rem;
+		gap: 0.85rem;
+		padding: 1.25rem 1.5rem;
+		background: #ffffff;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 14px;
+		box-shadow: 4px 4px 0 #1a1a1a;
+		text-align: center;
 	}
 
-	/* ---------- toggle ---------- */
+	.rejoin-text {
+		font-size: 0.9rem;
+		font-weight: 700;
+		color: #1a1a1a;
+	}
+
+	.rejoin-code {
+		color: #ff3b82;
+		letter-spacing: 0.2em;
+		font-family: 'Bangers', cursive;
+		font-size: 1.1rem;
+	}
+
+	.rejoin-btn {
+		display: inline-block;
+		padding: 0.55rem 1.4rem;
+		background: #4cc9f0;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 50px;
+		box-shadow: 3px 3px 0 #1a1a1a;
+		color: #1a1a1a;
+		font-family: 'Bangers', cursive;
+		font-size: 1.05rem;
+		letter-spacing: 0.1em;
+		text-decoration: none;
+		transition:
+			transform 0.1s,
+			box-shadow 0.1s;
+	}
+
+	.rejoin-btn:hover {
+		transform: translate(-2px, -2px);
+		box-shadow: 5px 5px 0 #1a1a1a;
+	}
+
+	.rejoin-btn:active {
+		transform: translate(1px, 1px);
+		box-shadow: 2px 2px 0 #1a1a1a;
+	}
+
+	/* ── Card ── */
+	.card {
+		width: 100%;
+		background: #ffffff;
+		border: 3px solid #1a1a1a;
+		border-radius: 20px;
+		box-shadow: 6px 6px 0 #1a1a1a;
+		padding: 1.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.4rem;
+	}
+
+	/* ── Toggle ── */
 	.toggle {
-		position: relative;
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		width: 100%;
-		background: #0d0d1a;
+		border: 2.5px solid #1a1a1a;
 		border-radius: 50px;
-		border: 2px solid #2d2b55;
 		overflow: hidden;
-	}
-
-	.toggle-pill {
-		position: absolute;
-		inset: 0;
-		width: 50%;
-		background: linear-gradient(135deg, #7c3aed, #db2777);
-		border-radius: 50px;
-		transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-		pointer-events: none;
+		background: #f0ece0;
 	}
 
 	.toggle-btn {
-		position: relative;
-		z-index: 1;
-		padding: 0.65rem 1rem;
+		padding: 0.6rem 1rem;
 		border: none;
 		background: transparent;
-		color: #4a4470;
-		font-size: 0.8rem;
-		font-weight: 700;
-		letter-spacing: 0.2em;
+		font-family: 'Bangers', cursive;
+		font-size: 1.1rem;
+		letter-spacing: 0.18em;
+		color: #aaa;
 		cursor: pointer;
-		transition: color 0.2s;
+		transition:
+			background 0.2s,
+			color 0.2s;
 	}
 
 	.toggle-btn.active {
-		color: #fff;
+		background: #ffd60a;
+		color: #1a1a1a;
 	}
 
-	/* ---------- form ---------- */
+	/* ── Form ── */
 	.game-form {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: 1.25rem;
+		align-items: stretch;
+		gap: 0.4rem;
 	}
 
-	.input-wrap {
+	.game-input {
 		width: 100%;
-	}
-
-	.input-wrap input {
-		width: 100%;
-		padding: 0.9rem 1.25rem;
+		padding: 0.85rem 1rem;
+		background: #fafaf7;
+		border: 2.5px solid #1a1a1a;
 		border-radius: 12px;
-		border: 2px solid #2d2b55;
-		background: #0d0d1a;
-		color: #e2d9f3;
-		font-size: 1.35rem;
-		font-weight: 700;
-		letter-spacing: 0.35em;
+		color: #1a1a1a;
+		font-family: 'Bangers', cursive;
+		font-size: 1.5rem;
+		letter-spacing: 0.3em;
 		text-align: center;
-		text-transform: uppercase;
 		outline: none;
-		transition:
-			border-color 0.2s,
-			box-shadow 0.2s;
-		caret-color: #a78bfa;
+		transition: box-shadow 0.2s;
 	}
 
-	.input-wrap input::placeholder {
-		color: #3d3765;
-		letter-spacing: 0.2em;
-		font-weight: 500;
-		font-size: 1rem;
+	.game-input::placeholder {
+		color: #c0b898;
+		letter-spacing: 0.15em;
+		font-size: 1.1rem;
 	}
 
-	.input-wrap input:disabled {
+	.game-input:focus {
+		box-shadow: 0 0 0 3px #ffd60a;
+	}
+
+	.game-input:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
-	.input-wrap input:focus {
-		border-color: #a78bfa;
-		box-shadow:
-			0 0 0 3px #a78bfa33,
-			0 0 20px #a78bfa22;
+
+	.error-row {
+		min-height: 1.4rem;
+		text-align: center;
 	}
 
-	/* ---------- error ---------- */
 	.error {
-		color: #f87171;
 		font-size: 0.85rem;
-		font-weight: 600;
-		letter-spacing: 0.05em;
-	}
-
-	/* ---------- button ---------- */
-	.join-btn {
-		position: relative;
-		padding: 0.9rem 3rem;
-		border: none;
-		border-radius: 50px;
-		background: linear-gradient(135deg, #7c3aed, #db2777);
-		color: #fff;
-		font-size: 1.1rem;
 		font-weight: 800;
-		letter-spacing: 0.18em;
+		color: #ff4747;
+	}
+
+	/* ── Buttons ── */
+	.btn-primary {
+		padding: 0.85rem 2rem;
+		background: #ffd60a;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 50px;
+		box-shadow: 4px 4px 0 #1a1a1a;
+		color: #1a1a1a;
+		font-family: 'Bangers', cursive;
+		font-size: 1.3rem;
+		letter-spacing: 0.14em;
 		cursor: pointer;
-		overflow: hidden;
 		transition:
-			transform 0.15s,
-			box-shadow 0.15s;
-		box-shadow: 0 4px 20px #7c3aed55;
+			transform 0.1s,
+			box-shadow 0.1s;
+		width: 100%;
 	}
 
-	.join-btn.create {
-		background: linear-gradient(135deg, #0ea5e9, #6366f1);
-		box-shadow: 0 4px 20px #0ea5e955;
+	.btn-primary:hover:not(:disabled) {
+		transform: translate(-2px, -2px);
+		box-shadow: 6px 6px 0 #1a1a1a;
 	}
 
-	.join-btn::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(135deg, #a855f7, #ec4899);
-		opacity: 0;
-		transition: opacity 0.2s;
+	.btn-primary:active:not(:disabled) {
+		transform: translate(2px, 2px);
+		box-shadow: 2px 2px 0 #1a1a1a;
 	}
 
-	.join-btn.create::before {
-		background: linear-gradient(135deg, #38bdf8, #818cf8);
-	}
-
-	.join-btn:hover {
-		transform: translateY(-2px) scale(1.03);
-		box-shadow: 0 8px 30px #7c3aed77;
-	}
-	.join-btn.create:hover {
-		box-shadow: 0 8px 30px #0ea5e977;
-	}
-	.join-btn:hover::before {
-		opacity: 1;
-	}
-	.join-btn:active {
-		transform: translateY(1px) scale(0.98);
-	}
-	.join-btn:disabled {
-		opacity: 0.6;
+	.btn-primary:disabled {
+		opacity: 0.55;
 		cursor: not-allowed;
-		transform: none;
-		box-shadow: none;
 	}
 
-	.join-btn span {
-		position: relative;
-		z-index: 1;
+	.btn-create {
+		background: #ff6b35;
+		color: #ffffff;
 	}
 
-	/* ---------- hint ---------- */
+	/* ── Hint ── */
 	.hint {
 		font-size: 0.8rem;
-		color: #4a4470;
-		letter-spacing: 0.08em;
+		font-weight: 700;
+		color: #8b7a55;
+		letter-spacing: 0.06em;
+		text-align: center;
 	}
 </style>

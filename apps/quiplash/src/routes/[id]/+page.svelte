@@ -122,320 +122,250 @@
 	});
 </script>
 
-<div class="container">
-	<div class="title-wrap">
-		<p class="label">ROOM CODE</p>
-		<h1 class="room-code">{lobby?.roomCode ?? '—'}</h1>
-	</div>
-	{#if lobby.status === 'waiting'}
-		<div class="card">
-			<div class="card-inner">
-				<div class="status-row">
-					<span class="status-dot" class:waiting={lobby?.status === 'waiting'}></span>
-					<span class="status-text">{statusLabel}</span>
-				</div>
-
-				<div class="divider"></div>
-
-				<p class="meta">Created at {createdDate}</p>
+{#if lobby.status === 'waiting'}
+	<!-- ── LOBBY ── -->
+	<div class="lobby-layout">
+		<!-- Left: room code + status -->
+		<div class="lobby-left">
+			<p class="code-label">ROOM CODE</p>
+			<h1 class="room-code">{lobby?.roomCode ?? '—'}</h1>
+			<div class="status-badge waiting">
+				<span class="status-dot"></span>
+				{statusLabel}
 			</div>
+			<p class="meta">Created at {createdDate}</p>
 		</div>
 
-		{#if !isPlayerInLobby}
-			<form method="post" action="?/join">
-				<input type="text" name="playerName" placeholder="Enter your name" />
-				<button type="submit">Join</button>
-			</form>
-		{/if}
-	{:else if lobby?.status === 'in_progress' || lobby?.status === 'finished'}
-		<div class="card">
-			<div class="card-inner">
-				<div class="status-row">
-					<span
-						class="status-dot"
-						class:playing={lobby?.status === 'in_progress'}
-						class:finished={lobby?.status === 'finished'}
-					></span>
-					<span class="status-text">{statusLabel}</span>
+		<!-- Right: players + actions -->
+		<div class="lobby-right">
+			<div class="players-section">
+				<div class="players-header">
+					<span class="players-label">PLAYERS</span>
+					<span class="players-count">{players.length}</span>
 				</div>
-
-				<div class="divider"></div>
-
-				<Game
-					round={gameRound}
-					totalRounds={gameTotalRounds}
-					question={gameQuestion}
-					endsAt={gameEndsAt}
-					phase={gamePhase}
-					{hasSubmitted}
-					{players}
-					{playerId}
-					{submittedPlayerIds}
-					answers={gameAnswers}
-					scoreboard={gameScoreboard}
-					{votingRounds}
-					{votingAnswers}
-					{votingEndsAt}
-					{playerVoteCounts}
-				/>
+				<div class="players-grid">
+					{#each players as p (p.id)}
+						<div class="player-chip" class:you={p.id === playerId} class:host={p.isHost}>
+							{#if p.isHost}<span class="crown">♛</span>{/if}
+							<span class="chip-name">{p.name}</span>
+							{#if p.id === playerId}<span class="you-badge">YOU</span>{/if}
+						</div>
+					{/each}
+				</div>
 			</div>
-		</div>
-	{/if}
 
-	<div class="players-section">
-		<div class="players-header">
-			<span class="players-label">PLAYERS</span>
-			<span class="players-count">{players.length}</span>
-		</div>
+			{#if !isPlayerInLobby}
+				<form method="post" action="?/join" class="join-form">
+					<input type="text" name="playerName" placeholder="ENTER YOUR NAME" class="join-input" />
+					<button type="submit" class="btn-join">JOIN GAME</button>
+				</form>
+			{/if}
 
-		<div class="players-grid">
-			{#each players as p (p.id)}
-				<div class="player-chip" class:you={p.id === playerId} class:host={p.isHost}>
-					{#if p.isHost}
-						<span class="crown">♛</span>
-					{/if}
-					<span class="chip-name">{p.name}</span>
-					{#if p.id === playerId}
-						<span class="you-badge">YOU</span>
-					{/if}
-				</div>
-			{/each}
+			{#if players.length > 1 && playerCookie?.isHost && lobby?.status === 'waiting'}
+				<form method="POST" action="?/start" class="start-form">
+					<button type="submit" name="action" value="start" class="btn-start">
+						START GAME! 🎮
+					</button>
+				</form>
+			{/if}
 		</div>
 	</div>
 
-	{#if players.length > 1 && playerCookie?.isHost && lobby?.status === 'waiting'}
-		<form method="POST" action="?/start" class="size-20 bg-white">
-			<button type="submit" name="action" value="start">Start Game</button>
-		</form>
-	{/if}
-</div>
+{:else if lobby?.status === 'in_progress' || lobby?.status === 'finished'}
+	<!-- ── GAME IN PROGRESS / FINISHED ── -->
+	<div class="game-layout">
+		<div class="game-topbar">
+			<span class="room-code-badge">{lobby?.roomCode}</span>
+			<div
+				class="status-pill"
+				class:playing={lobby?.status === 'in_progress'}
+				class:finished={lobby?.status === 'finished'}
+			>
+				<span class="status-dot"></span>
+				{statusLabel}
+			</div>
+		</div>
+
+		<Game
+			round={gameRound}
+			totalRounds={gameTotalRounds}
+			question={gameQuestion}
+			endsAt={gameEndsAt}
+			phase={gamePhase}
+			{hasSubmitted}
+			{players}
+			{playerId}
+			{submittedPlayerIds}
+			answers={gameAnswers}
+			scoreboard={gameScoreboard}
+			{votingRounds}
+			{votingAnswers}
+			{votingEndsAt}
+			{playerVoteCounts}
+		/>
+	</div>
+{/if}
 
 <style>
-	.container {
-		position: relative;
-		z-index: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 2rem;
-		padding: 2rem 1rem;
+	/* ── LOBBY layout ── */
+	.lobby-layout {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 3rem;
 		width: 100%;
-		max-width: 480px;
+		max-width: 820px;
+		align-items: start;
 	}
 
-	.title-wrap {
-		text-align: center;
-	}
-
-	.label {
-		font-size: 0.75rem;
-		letter-spacing: 0.25em;
-		text-transform: uppercase;
-		color: #7c6fa0;
-		margin-bottom: 0.5rem;
-	}
-
-	.room-code {
-		font-size: clamp(3rem, 14vw, 5.5rem);
-		font-weight: 900;
-		letter-spacing: 0.15em;
-		line-height: 1;
-		background: linear-gradient(135deg, #f9a8d4 0%, #a78bfa 40%, #60a5fa 80%);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-		filter: drop-shadow(0 0 24px #a78bfa88);
-		animation: pulse-glow 3s ease-in-out infinite;
-	}
-
-	@keyframes pulse-glow {
-		0%,
-		100% {
-			filter: drop-shadow(0 0 18px #a78bfa88);
-		}
-		50% {
-			filter: drop-shadow(0 0 36px #a78bfacc);
+	@media (max-width: 580px) {
+		.lobby-layout {
+			grid-template-columns: 1fr;
+			gap: 1.75rem;
 		}
 	}
 
-	.card {
-		width: 100%;
-		border-radius: 20px;
-		padding: 2px;
-		background: linear-gradient(135deg, #a78bfa55, #f472b655, #60a5fa55);
-		box-shadow:
-			0 8px 40px #0007,
-			0 0 60px #a78bfa22;
-		animation: card-float 4s ease-in-out infinite;
-	}
-
-	@keyframes card-float {
-		0%,
-		100% {
-			transform: translateY(0);
-		}
-		50% {
-			transform: translateY(-6px);
-		}
-	}
-
-	.card-inner {
-		background: #13132a;
-		border-radius: 18px;
-		padding: 2.5rem 2rem;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 1.5rem;
-	}
-
-	.status-row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.status-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: #4a4470;
-		flex-shrink: 0;
-	}
-
-	.status-dot.waiting {
-		background: #a78bfa;
-		box-shadow: 0 0 8px #a78bfa99;
-		animation: blink 1.5s ease-in-out infinite;
-	}
-
-	.status-dot.playing {
-		background: #34d399;
-		box-shadow: 0 0 8px #34d39999;
-	}
-
-	.status-dot.finished {
-		background: #f472b6;
-		box-shadow: 0 0 8px #f472b699;
-	}
-
-	@keyframes blink {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.35;
-		}
-	}
-
-	.status-text {
-		font-size: 0.85rem;
-		font-weight: 700;
-		letter-spacing: 0.2em;
-		color: #a78bfa;
-	}
-
-	.divider {
-		width: 100%;
-		height: 1px;
-		background: linear-gradient(90deg, transparent, #2d2b55, transparent);
-	}
-
-	.meta {
-		font-size: 0.75rem;
-		color: #4a4470;
-		letter-spacing: 0.08em;
-	}
-
-	/* ---- players ---- */
-	.players-section {
-		width: 100%;
+	/* Left col */
+	.lobby-left {
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
 	}
 
-	.players-header {
-		display: flex;
+	.code-label {
+		font-family: 'Bangers', cursive;
+		font-size: 0.85rem;
+		letter-spacing: 0.3em;
+		color: #7a6a4f;
+	}
+
+	.room-code {
+		font-family: 'Bangers', cursive;
+		font-size: clamp(3.5rem, 10vw, 6rem);
+		letter-spacing: 0.18em;
+		line-height: 1;
+		color: #ff3b82;
+		-webkit-text-stroke: 2px #1a1a1a;
+		paint-order: stroke fill;
+	}
+
+	.status-badge {
+		display: inline-flex;
 		align-items: center;
+		gap: 0.55rem;
+		padding: 0.4rem 1rem;
+		background: #f0ece0;
+		border: 2px solid #1a1a1a;
+		border-radius: 50px;
+		font-family: 'Bangers', cursive;
+		font-size: 0.9rem;
+		letter-spacing: 0.18em;
+		color: #1a1a1a;
+		box-shadow: 2px 2px 0 #1a1a1a;
+		align-self: flex-start;
+	}
+
+	.status-badge.waiting {
+		background: #ffd60a;
+		animation: badge-blink 1.8s ease-in-out infinite;
+	}
+
+	@keyframes badge-blink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.65;
+		}
+	}
+
+	.status-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: #1a1a1a;
+		flex-shrink: 0;
+	}
+
+	.meta {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: #aaa;
+		letter-spacing: 0.06em;
+	}
+
+	/* Right col */
+	.lobby-right {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+	}
+
+	.players-section {
+		display: flex;
+		flex-direction: column;
 		gap: 0.75rem;
 	}
 
-	.players-header::before,
-	.players-header::after {
-		content: '';
-		flex: 1;
-		height: 1px;
-		background: linear-gradient(90deg, transparent, #2d2b55);
-	}
-
-	.players-header::after {
-		background: linear-gradient(270deg, transparent, #2d2b55);
+	.players-header {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
 	}
 
 	.players-label {
-		font-size: 0.7rem;
-		font-weight: 700;
-		letter-spacing: 0.25em;
-		color: #4a4470;
-		white-space: nowrap;
+		font-family: 'Bangers', cursive;
+		font-size: 1rem;
+		letter-spacing: 0.22em;
+		color: #1a1a1a;
 	}
 
 	.players-count {
-		font-size: 0.7rem;
-		font-weight: 800;
-		color: #a78bfa;
-		background: #1e1a3a;
-		border: 1px solid #2d2b55;
+		font-family: 'Bangers', cursive;
+		font-size: 0.9rem;
+		color: #1a1a1a;
+		background: #ffd60a;
+		border: 2px solid #1a1a1a;
 		border-radius: 99px;
-		padding: 0.1rem 0.5rem;
-		min-width: 1.5rem;
-		text-align: center;
+		padding: 0.05rem 0.55rem;
+		box-shadow: 2px 2px 0 #1a1a1a;
 	}
 
 	.players-grid {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.6rem;
+		gap: 0.5rem;
 	}
 
 	.player-chip {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.45rem 0.85rem;
+		gap: 0.35rem;
+		padding: 0.4rem 0.85rem;
 		border-radius: 99px;
-		background: #0d0d1a;
-		border: 1.5px solid #2d2b55;
+		background: #ffffff;
+		border: 2px solid #1a1a1a;
+		box-shadow: 2px 2px 0 #1a1a1a;
 		font-size: 0.85rem;
-		font-weight: 600;
-		color: #a09ac0;
-		letter-spacing: 0.04em;
-		transition: border-color 0.2s;
+		font-weight: 800;
+		color: #1a1a1a;
 	}
 
 	.player-chip.host {
-		border-color: #4a3a7a;
-		color: #c4b5fd;
+		border-color: #ff6b35;
 	}
 
 	.player-chip.you {
-		border-color: #7c3aed;
-		background: #1a1035;
-		color: #e2d9f3;
-		box-shadow: 0 0 12px #7c3aed33;
+		background: #4cc9f0;
 	}
 
 	.player-chip.host.you {
-		border-color: #a78bfa;
-		box-shadow: 0 0 14px #a78bfa44;
+		background: #ffd60a;
 	}
 
 	.crown {
-		font-size: 0.75rem;
-		color: #a78bfa;
-		line-height: 1;
+		font-size: 0.7rem;
+		color: #ff6b35;
 	}
 
 	.chip-name {
@@ -443,13 +373,168 @@
 	}
 
 	.you-badge {
+		font-family: 'Bangers', cursive;
 		font-size: 0.6rem;
-		font-weight: 800;
-		letter-spacing: 0.12em;
-		color: #7c3aed;
-		background: #2d1b69;
+		letter-spacing: 0.1em;
+		color: #1a1a1a;
+		background: #ffffff;
+		border: 1.5px solid #1a1a1a;
 		border-radius: 99px;
-		padding: 0.15rem 0.4rem;
+		padding: 0.06rem 0.35rem;
 		line-height: 1;
+	}
+
+	/* Join form */
+	.join-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+	}
+
+	.join-input {
+		width: 100%;
+		padding: 0.8rem 1rem;
+		background: #ffffff;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 12px;
+		color: #1a1a1a;
+		font-family: 'Bangers', cursive;
+		font-size: 1.2rem;
+		letter-spacing: 0.18em;
+		text-align: center;
+		outline: none;
+		transition: box-shadow 0.2s;
+	}
+
+	.join-input::placeholder {
+		color: #c0b898;
+		font-size: 0.95rem;
+		letter-spacing: 0.12em;
+	}
+
+	.join-input:focus {
+		box-shadow: 0 0 0 3px #ffd60a;
+	}
+
+	.btn-join {
+		padding: 0.75rem 2rem;
+		background: #ffd60a;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 50px;
+		box-shadow: 4px 4px 0 #1a1a1a;
+		color: #1a1a1a;
+		font-family: 'Bangers', cursive;
+		font-size: 1.2rem;
+		letter-spacing: 0.14em;
+		cursor: pointer;
+		width: 100%;
+		transition:
+			transform 0.1s,
+			box-shadow 0.1s;
+	}
+
+	.btn-join:hover {
+		transform: translate(-2px, -2px);
+		box-shadow: 6px 6px 0 #1a1a1a;
+	}
+
+	.btn-join:active {
+		transform: translate(2px, 2px);
+		box-shadow: 2px 2px 0 #1a1a1a;
+	}
+
+	/* Start button */
+	.start-form {
+		width: 100%;
+	}
+
+	.btn-start {
+		width: 100%;
+		padding: 1rem 2rem;
+		background: #06d6a0;
+		border: 3px solid #1a1a1a;
+		border-radius: 50px;
+		box-shadow: 5px 5px 0 #1a1a1a;
+		color: #1a1a1a;
+		font-family: 'Bangers', cursive;
+		font-size: 1.6rem;
+		letter-spacing: 0.12em;
+		cursor: pointer;
+		animation: start-pulse 1.6s ease-in-out infinite;
+		transition:
+			transform 0.1s,
+			box-shadow 0.1s;
+	}
+
+	@keyframes start-pulse {
+		0%,
+		100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.025);
+		}
+	}
+
+	.btn-start:hover {
+		animation: none;
+		transform: translate(-3px, -3px);
+		box-shadow: 8px 8px 0 #1a1a1a;
+	}
+
+	.btn-start:active {
+		animation: none;
+		transform: translate(3px, 3px);
+		box-shadow: 2px 2px 0 #1a1a1a;
+	}
+
+	/* ── GAME layout ── */
+	.game-layout {
+		width: 100%;
+		max-width: 760px;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	.game-topbar {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.room-code-badge {
+		font-family: 'Bangers', cursive;
+		font-size: 1rem;
+		letter-spacing: 0.22em;
+		color: #ff3b82;
+		background: #ffffff;
+		border: 2px solid #1a1a1a;
+		border-radius: 50px;
+		padding: 0.2rem 0.85rem;
+		box-shadow: 2px 2px 0 #1a1a1a;
+	}
+
+	.status-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+		padding: 0.25rem 0.8rem;
+		background: #f0ece0;
+		border: 2px solid #1a1a1a;
+		border-radius: 50px;
+		font-family: 'Bangers', cursive;
+		font-size: 0.78rem;
+		letter-spacing: 0.16em;
+		color: #1a1a1a;
+		box-shadow: 2px 2px 0 #1a1a1a;
+	}
+
+	.status-pill.playing {
+		background: #06d6a0;
+	}
+
+	.status-pill.finished {
+		background: #4cc9f0;
 	}
 </style>

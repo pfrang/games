@@ -15,16 +15,13 @@
 	let { rounds, answers, endsAt, players, playerId, playerVoteCounts }: Props = $props();
 
 	const VOTE_DURATION = 60;
-	const RADIUS = 52;
+	const RADIUS = 50;
 	const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 	let timeLeft = $state(VOTE_DURATION);
 	let myVotes = $state<Map<number, string>>(new Map());
 
-	let timerColor = $derived(timeLeft > 30 ? '#34d399' : timeLeft > 15 ? '#fbbf24' : '#ef4444');
-	let timerGlowRgb = $derived(
-		timeLeft > 30 ? '52,211,153' : timeLeft > 15 ? '251,191,36' : '239,68,68'
-	);
+	let timerColor = $derived(timeLeft > 30 ? '#06d6a0' : timeLeft > 15 ? '#ffd60a' : '#ff4747');
 	let dashOffset = $derived(
 		CIRCUMFERENCE * (1 - Math.max(0, Math.min(timeLeft, VOTE_DURATION)) / VOTE_DURATION)
 	);
@@ -43,6 +40,19 @@
 			.sort(([a], [b]) => a - b);
 	});
 
+	// Derived from elapsed time so every client shows the same question simultaneously
+	let currentIndex = $derived.by(() => {
+		if (answersByRound.length <= 1) return 0;
+		const elapsed = VOTE_DURATION - timeLeft;
+		const perQuestion = VOTE_DURATION / answersByRound.length;
+		return Math.min(Math.floor(elapsed / perQuestion), answersByRound.length - 1);
+	});
+
+	let currentEntry = $derived(answersByRound[currentIndex] ?? null);
+	let currentRoundNum = $derived(currentEntry ? currentEntry[0] : -1);
+	let currentRoundData = $derived(currentEntry ? currentEntry[1] : null);
+	let isCurrentVoted = $derived(currentRoundNum >= 0 ? !!myVotes.get(currentRoundNum) : false);
+
 	let allVoted = $derived(myVotes.size === rounds.length);
 
 	$effect(() => {
@@ -57,182 +67,180 @@
 	});
 </script>
 
-<div class="voting-wrap">
-	<!-- Header -->
-	<div class="v-header">
-		<div class="v-title">
-			<span class="v-label">VOTING</span>
-			<span class="v-label accent">ROUND</span>
-		</div>
-		<p class="v-sub">pick your favourite answer for each question</p>
-	</div>
-
-	<!-- Timer -->
-	<div
-		class="timer-ring"
-		class:urgent={isUrgent}
-		style="--glow-rgb: {timerGlowRgb}; --timer-color: {timerColor}"
-	>
-		{#if timeLeft === 0}
-			<div class="transitioning">
-				<span class="t-dot"></span>
-				<span class="t-dot"></span>
-				<span class="t-dot"></span>
+<div class="voting-layout">
+	<!-- Top bar: title + progress + timer -->
+	<div class="voting-topbar">
+		<div class="topbar-left">
+			<h2 class="v-title">
+				<span class="v-word">VOTING</span>
+				<span class="v-word accent">TIME</span>
+			</h2>
+			<div class="progress-dots">
+				{#each answersByRound as [rn], i}
+					<span
+						class="p-dot"
+						class:current={i === currentIndex}
+						class:voted={myVotes.has(rn)}
+						aria-label="Question {i + 1}"
+					></span>
+				{/each}
 			</div>
-		{:else}
-			<svg viewBox="0 0 120 120" class="ring-svg">
-				<circle cx="60" cy="60" r={RADIUS} fill="none" stroke="#1a1535" stroke-width="7" />
-				<circle
-					cx="60"
-					cy="60"
-					r={RADIUS}
-					fill="none"
-					stroke={timerColor}
-					stroke-width="7"
-					stroke-linecap="round"
-					stroke-dasharray={CIRCUMFERENCE}
-					stroke-dashoffset={dashOffset}
-					transform="rotate(-90 60 60)"
-					class="ring-arc"
-				/>
-				<text
-					x="60"
-					y="55"
-					text-anchor="middle"
-					dominant-baseline="central"
-					fill={timerColor}
-					font-size="30"
-					font-weight="900"
-					font-family="monospace, Courier New">{timeLeft}</text
-				>
-				<text
-					x="60"
-					y="75"
-					text-anchor="middle"
-					dominant-baseline="central"
-					fill="#4a4470"
-					font-size="8"
-					font-weight="700"
-					font-family="monospace, Courier New"
-					letter-spacing="3">SEC</text
-				>
-			</svg>
-		{/if}
+		</div>
+
+		<!-- Timer -->
+		<div class="timer-wrap" class:urgent={isUrgent}>
+			{#if timeLeft === 0}
+				<div class="transitioning">
+					<span class="t-dot"></span>
+					<span class="t-dot"></span>
+					<span class="t-dot"></span>
+				</div>
+			{:else}
+				<svg viewBox="0 0 120 120" class="ring-svg">
+					<circle cx="60" cy="60" r="58" fill="white" />
+					<circle cx="60" cy="60" r={RADIUS} fill="none" stroke="#e8e0cc" stroke-width="8" />
+					<circle
+						cx="60"
+						cy="60"
+						r={RADIUS}
+						fill="none"
+						stroke={timerColor}
+						stroke-width="8"
+						stroke-linecap="round"
+						stroke-dasharray={CIRCUMFERENCE}
+						stroke-dashoffset={dashOffset}
+						transform="rotate(-90 60 60)"
+						class="ring-arc"
+					/>
+					<text
+						x="60"
+						y="57"
+						text-anchor="middle"
+						dominant-baseline="central"
+						fill="#1a1a1a"
+						font-size="32"
+						font-weight="900"
+						font-family="'Bangers', cursive">{timeLeft}</text
+					>
+					<text
+						x="60"
+						y="76"
+						text-anchor="middle"
+						dominant-baseline="central"
+						fill="#aaa"
+						font-size="9"
+						font-weight="700"
+						font-family="monospace"
+						letter-spacing="3">SEC</text
+					>
+				</svg>
+			{/if}
+		</div>
 	</div>
 
+	<!-- Empty state when nobody submitted answers -->
+	{#if answersByRound.length === 0}
+		<div class="empty-state">
+			<span class="empty-emoji">😬</span>
+			<p class="empty-head">OOPS!</p>
+			<p class="empty-body">Looks like nobody answered this round...</p>
+			<p class="empty-hint">moving on shortly</p>
+		</div>
+
+	<!-- Question (bounce-in when currentIndex changes) -->
+	{:else if currentRoundData}
+		{#key currentIndex}
+			<div class="question-card">
+				<span class="q-counter">Q{currentIndex + 1}/{answersByRound.length}</span>
+				<span class="q-glyph">"</span>
+				<p class="q-body">{currentRoundData.question}</p>
+				{#if isCurrentVoted}
+					<div class="voted-overlay">
+						<span class="voted-badge">✓ VOTED</span>
+					</div>
+				{/if}
+			</div>
+		{/key}
+
+		<!-- Answers grid -->
+		<div class="answers-grid">
+			{#each currentRoundData.entries as answer (answer.answerId)}
+				{@const isOwn = answer.playerId === playerId}
+				{@const isSelected = myVotes.get(currentRoundNum) === answer.answerId}
+				{@const isDimmed = isCurrentVoted && !isSelected}
+
+				{#if isOwn}
+					<div class="answer-card own" class:dimmed={isDimmed}>
+						<span class="player-name">
+							{answer.playerName}
+							<span class="own-tag">YOU</span>
+						</span>
+						<p class="answer-text">{answer.answer}</p>
+					</div>
+				{:else}
+					<form
+						method="POST"
+						action="?/submit_vote"
+						use:enhance={() => {
+							return async ({ result, update }) => {
+								if (result.type === 'success' || result.type === 'redirect') {
+									myVotes = new Map([...myVotes, [answer.roundNumber, answer.answerId]]);
+								}
+								await update({ reset: false });
+							};
+						}}
+					>
+						<input type="hidden" name="answerId" value={answer.answerId} />
+						<input type="hidden" name="roundNumber" value={answer.roundNumber} />
+						<button
+							type="submit"
+							class="answer-card vote-card"
+							class:selected={isSelected}
+							class:dimmed={isDimmed}
+							disabled={isCurrentVoted}
+						>
+							<span class="player-name">{answer.playerName}</span>
+							<p class="answer-text">{answer.answer}</p>
+							{#if isSelected}
+								<span class="vote-indicator selected-indicator">✓ VOTED!</span>
+							{:else if !isCurrentVoted}
+								<span class="vote-indicator vote-hint">TAP TO VOTE →</span>
+							{/if}
+						</button>
+					</form>
+				{/if}
+			{/each}
+		</div>
+
+	{/if}
+
+	<!-- All voted banner -->
 	{#if allVoted}
 		<div class="all-voted-banner">
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
 				<path
 					d="M2.5 8.5L6.5 12.5L13.5 4.5"
-					stroke="#34d399"
+					stroke="#1a1a1a"
 					stroke-width="2.2"
 					stroke-linecap="round"
 					stroke-linejoin="round"
 				/>
 			</svg>
-			<span>ALL VOTES IN — WAITING FOR OTHERS</span>
+			ALL VOTES IN — WAITING FOR OTHERS
 		</div>
 	{/if}
 
-	<!-- Round groups -->
-	<div class="rounds-list">
-		{#each answersByRound as [roundNum, { question: q, entries }]}
-			{@const voted = myVotes.get(roundNum)}
-			<div class="round-block" class:voted={!!voted}>
-				<div class="rb-header">
-					<span class="rb-badge">R{roundNum + 1}</span>
-					<span class="rb-question">{q}</span>
-					{#if voted}
-						<span class="vote-locked-tag">
-							<svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-								<path
-									d="M1.5 5.5L4 8L8.5 2.5"
-									stroke="#fbbf24"
-									stroke-width="1.8"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-							</svg>
-							VOTE LOCKED
-						</span>
-					{/if}
-				</div>
-
-				<div class="answer-cards">
-					{#each entries as answer (answer.answerId)}
-						{@const isOwn = answer.playerId === playerId}
-						{@const isSelected = voted === answer.answerId}
-						{@const isDimmed = !!voted && !isSelected}
-
-						{#if isOwn}
-							<div class="answer-card own" class:dimmed={isDimmed}>
-								<div class="card-name">
-									{answer.playerName}
-									<span class="own-tag">YOUR ANSWER</span>
-								</div>
-								<div class="card-text">{answer.answer}</div>
-							</div>
-						{:else}
-							<form
-								method="POST"
-								action="?/submit_vote"
-								use:enhance={() => {
-									return async ({ result, update }) => {
-										if (result.type === 'success' || result.type === 'redirect') {
-											myVotes = new Map([...myVotes, [answer.roundNumber, answer.answerId]]);
-										}
-										await update({ reset: false });
-									};
-								}}
-							>
-								<input type="hidden" name="answerId" value={answer.answerId} />
-								<input type="hidden" name="roundNumber" value={answer.roundNumber} />
-								<button
-									type="submit"
-									class="answer-card vote-card"
-									class:selected={isSelected}
-									class:dimmed={isDimmed}
-									disabled={!!voted}
-								>
-									<div class="card-name">{answer.playerName}</div>
-									<div class="card-text">{answer.answer}</div>
-									{#if isSelected}
-										<div class="selected-indicator">
-											<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-												<path
-													d="M1.5 6.5L4.5 9.5L10.5 2.5"
-													stroke="#fbbf24"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-												/>
-											</svg>
-											VOTED
-										</div>
-									{:else if !voted}
-										<div class="vote-hint">TAP TO VOTE</div>
-									{/if}
-								</button>
-							</form>
-						{/if}
-					{/each}
-				</div>
-			</div>
-		{/each}
-	</div>
-
-	<!-- Player vote tracker -->
+	<!-- Voter tracker (compact) -->
 	{#if players.length > 0}
 		<div class="tracker-section">
-			<div class="tracker-label">VOTERS</div>
+			<span class="tracker-label">VOTERS</span>
 			<div class="tracker-grid">
 				{#each players as p (p.id)}
 					{@const count = playerVoteCounts.get(p.id) ?? 0}
 					{@const done = count >= rounds.length}
 					<div class="track-chip" class:done>
 						<span class="track-pip" class:done></span>
-						<span class="track-name">{p.name}</span>
+						<span>{p.name}</span>
 						<span class="track-count" class:done>{count}/{rounds.length}</span>
 					</div>
 				{/each}
@@ -242,199 +250,454 @@
 </div>
 
 <style>
-	.voting-wrap {
+	.voting-layout {
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: 1.5rem;
+		gap: 1.25rem;
 	}
 
-	/* ── Header ── */
-	.v-header {
-		text-align: center;
+	/* ── Top bar ── */
+	.voting-topbar {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.topbar-left {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: 0.35rem;
+		gap: 0.6rem;
 	}
+
 	.v-title {
 		display: flex;
-		gap: 0.5rem;
+		gap: 0.4rem;
 		align-items: baseline;
 	}
-	.v-label {
-		font-size: 1.4rem;
-		font-weight: 900;
-		letter-spacing: 0.22em;
-		color: #e2d9f3;
-	}
-	.v-label.accent {
-		background: linear-gradient(90deg, #f9a8d4, #a78bfa);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-		filter: drop-shadow(0 0 10px #a78bfa66);
-	}
-	.v-sub {
-		font-size: 0.68rem;
+
+	.v-word {
+		font-family: 'Bangers', cursive;
+		font-size: 1.9rem;
 		letter-spacing: 0.15em;
-		color: #4a4470;
-		text-transform: uppercase;
+		color: #1a1a1a;
+		line-height: 1;
 	}
 
-	/* ── Timer ── */
-	.timer-ring {
-		position: relative;
-		width: 128px;
-		height: 128px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		filter: drop-shadow(0 0 16px rgba(var(--glow-rgb), 0.45));
-		transition: filter 0.4s ease;
+	.v-word.accent {
+		color: #ff3b82;
+		-webkit-text-stroke: 1px #1a1a1a;
+		paint-order: stroke fill;
 	}
-	.timer-ring.urgent {
-		animation: ring-pulse 0.8s ease-in-out infinite;
-	}
-	@keyframes ring-pulse {
-		0%,
-		100% {
-			filter: drop-shadow(0 0 14px rgba(var(--glow-rgb), 0.4));
-		}
-		50% {
-			filter: drop-shadow(0 0 28px rgba(var(--glow-rgb), 0.85));
-		}
-	}
-	.ring-svg {
-		width: 100%;
-		height: 100%;
-	}
-	.ring-arc {
-		transition:
-			stroke-dashoffset 0.26s linear,
-			stroke 0.5s ease;
-	}
-	.transitioning {
+
+	.progress-dots {
 		display: flex;
 		gap: 0.45rem;
 		align-items: center;
 	}
+
+	.p-dot {
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		border: 2.5px solid #1a1a1a;
+		background: white;
+		transition:
+			background 0.2s,
+			transform 0.15s;
+	}
+
+	.p-dot.current {
+		background: #ff3b82;
+		transform: scale(1.3);
+	}
+
+	.p-dot.voted {
+		background: #06d6a0;
+	}
+
+	.p-dot.voted.current {
+		background: #06d6a0;
+		transform: scale(1.3);
+	}
+
+	/* ── Timer ── */
+	.timer-wrap {
+		width: 110px;
+		height: 110px;
+		flex-shrink: 0;
+		border-radius: 50%;
+		border: 3px solid #1a1a1a;
+		box-shadow: 4px 4px 0 #1a1a1a;
+		overflow: hidden;
+		background: white;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.timer-wrap.urgent {
+		animation: timer-shake 0.5s ease-in-out infinite;
+	}
+
+	@keyframes timer-shake {
+		0%,
+		100% {
+			transform: rotate(0deg);
+		}
+		25% {
+			transform: rotate(-2deg) scale(1.04);
+		}
+		75% {
+			transform: rotate(2deg) scale(1.04);
+		}
+	}
+
+	.ring-svg {
+		width: 100%;
+		height: 100%;
+	}
+
+	.ring-arc {
+		transition:
+			stroke-dashoffset 0.26s linear,
+			stroke 0.4s ease;
+	}
+
+	.transitioning {
+		display: flex;
+		gap: 0.4rem;
+		align-items: center;
+	}
+
 	.t-dot {
 		width: 9px;
 		height: 9px;
 		border-radius: 50%;
-		background: #a78bfa;
+		background: #ffd60a;
+		border: 2px solid #1a1a1a;
 		animation: t-bounce 1.1s ease-in-out infinite;
 	}
+
 	.t-dot:nth-child(2) {
 		animation-delay: 0.18s;
 	}
+
 	.t-dot:nth-child(3) {
 		animation-delay: 0.36s;
 	}
+
 	@keyframes t-bounce {
 		0%,
 		100% {
 			transform: translateY(0);
-			opacity: 0.45;
 		}
 		50% {
 			transform: translateY(-9px);
+		}
+	}
+
+	/* ── Empty state ── */
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 2.5rem 1rem;
+		text-align: center;
+	}
+
+	.empty-emoji {
+		font-size: 4rem;
+		line-height: 1;
+		animation: drop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	.empty-head {
+		font-family: 'Bangers', cursive;
+		font-size: 3.5rem;
+		letter-spacing: 0.18em;
+		color: #ff3b82;
+		-webkit-text-stroke: 2px #1a1a1a;
+		paint-order: stroke fill;
+		line-height: 1;
+		animation: drop-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+	}
+
+	.empty-body {
+		font-size: 1rem;
+		font-weight: 800;
+		color: #1a1a1a;
+		animation: drop-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
+	}
+
+	.empty-hint {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: #aaa;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin-top: 0.25rem;
+		animation:
+			drop-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both,
+			hint-drift 2.2s ease-in-out 1s infinite;
+	}
+
+	@keyframes drop-in {
+		0% {
+			opacity: 0;
+			transform: translateY(-55px) scale(0.7) rotate(-4deg);
+		}
+		55% {
+			opacity: 1;
+			transform: translateY(8px) scale(1.07) rotate(2deg);
+		}
+		75% {
+			transform: translateY(-4px) scale(0.98) rotate(-1deg);
+		}
+		100% {
+			opacity: 1;
+			transform: translateY(0) scale(1) rotate(0deg);
+		}
+	}
+
+	@keyframes hint-drift {
+		0%,
+		100% {
+			transform: translateX(0);
 			opacity: 1;
 		}
+		50% {
+			transform: translateX(5px);
+			opacity: 0.6;
+		}
+	}
+
+	/* ── Question card ── */
+	.question-card {
+		width: 100%;
+		position: relative;
+		background: #ffffff;
+		border: 3px solid #1a1a1a;
+		border-radius: 16px;
+		box-shadow: 5px 5px 0 #1a1a1a;
+		padding: 1.25rem 1.4rem 1.25rem 2.6rem;
+		animation: q-bounce-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	@keyframes q-bounce-in {
+		0% {
+			opacity: 0;
+			transform: translateY(-40px) scale(0.82) rotate(-2.5deg);
+		}
+		55% {
+			opacity: 1;
+			transform: translateY(6px) scale(1.03) rotate(1deg);
+		}
+		75% {
+			transform: translateY(-3px) scale(0.99) rotate(-0.3deg);
+		}
+		100% {
+			opacity: 1;
+			transform: translateY(0) scale(1) rotate(0deg);
+		}
+	}
+
+	.q-counter {
+		position: absolute;
+		top: -0.6rem;
+		right: 0.9rem;
+		font-family: 'Bangers', cursive;
+		font-size: 0.75rem;
+		letter-spacing: 0.12em;
+		color: #1a1a1a;
+		background: #ffd60a;
+		border: 2px solid #1a1a1a;
+		border-radius: 99px;
+		padding: 0.05rem 0.6rem;
+	}
+
+	.q-glyph {
+		position: absolute;
+		top: -0.1rem;
+		left: 0.55rem;
+		font-size: 3.5rem;
+		font-weight: 900;
+		color: #ffd60a;
+		line-height: 1;
+		font-family: Georgia, serif;
+		user-select: none;
+		-webkit-text-stroke: 1px #1a1a1a;
+		paint-order: stroke fill;
+	}
+
+	.q-body {
+		font-size: 1.05rem;
+		font-weight: 800;
+		color: #1a1a1a;
+		line-height: 1.5;
+	}
+
+	.voted-overlay {
+		position: absolute;
+		bottom: 0.65rem;
+		right: 0.85rem;
+	}
+
+	.voted-badge {
+		font-family: 'Bangers', cursive;
+		font-size: 0.8rem;
+		letter-spacing: 0.12em;
+		color: #1a1a1a;
+		background: #06d6a0;
+		border: 2px solid #1a1a1a;
+		border-radius: 99px;
+		padding: 0.1rem 0.6rem;
+	}
+
+	/* ── Answers grid ── */
+	.answers-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: 1rem;
+		width: 100%;
+	}
+
+	.answers-grid form {
+		display: contents;
+	}
+
+	.answer-card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 1rem 1.1rem;
+		background: #ffffff;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 14px;
+		box-shadow: 4px 4px 0 #1a1a1a;
+		transition:
+			transform 0.1s,
+			box-shadow 0.1s,
+			opacity 0.2s,
+			background 0.15s;
+	}
+
+	.answer-card.own {
+		opacity: 0.4;
+		background: #f5f0e0;
+		cursor: default;
+	}
+
+	.answer-card.dimmed {
+		opacity: 0.3;
+	}
+
+	.vote-card {
+		cursor: pointer;
+		font-family: inherit;
+		border: 2.5px solid #1a1a1a;
+		color: inherit;
+		text-align: left;
+		width: 100%;
+	}
+
+	.vote-card:not(:disabled):not(.selected):hover {
+		transform: translate(-2px, -2px);
+		box-shadow: 6px 6px 0 #1a1a1a;
+		background: #fff9e6;
+	}
+
+	.vote-card:not(:disabled):not(.selected):active {
+		transform: translate(2px, 2px);
+		box-shadow: 2px 2px 0 #1a1a1a;
+	}
+
+	.vote-card.selected {
+		background: #ffd60a;
+		border-color: #1a1a1a;
+		box-shadow: 4px 4px 0 #1a1a1a;
+	}
+
+	.vote-card:disabled:not(.selected) {
+		cursor: default;
+	}
+
+	.player-name {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		font-size: 0.68rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		color: #aaa;
+		text-transform: uppercase;
+	}
+
+	.vote-card.selected .player-name {
+		color: rgba(26, 26, 26, 0.6);
+	}
+
+	.own-tag {
+		font-family: 'Bangers', cursive;
+		font-size: 0.6rem;
+		letter-spacing: 0.1em;
+		color: #ffffff;
+		background: #ff6b35;
+		border-radius: 99px;
+		padding: 0.08rem 0.4rem;
+	}
+
+	.answer-text {
+		font-size: 1rem;
+		font-weight: 800;
+		color: #1a1a1a;
+		line-height: 1.4;
+		flex: 1;
+	}
+
+	.vote-indicator {
+		display: block;
+		font-family: 'Bangers', cursive;
+		font-size: 0.72rem;
+		letter-spacing: 0.18em;
+		margin-top: 0.25rem;
+	}
+
+	.vote-hint {
+		color: #ccc;
+		transition: color 0.15s;
+	}
+
+	.vote-card:not(:disabled):hover .vote-hint {
+		color: #ff6b35;
+	}
+
+	.selected-indicator {
+		color: #1a1a1a;
 	}
 
 	/* ── All voted banner ── */
 	.all-voted-banner {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
-		background: #081a10;
-		border: 1.5px solid #34d39940;
-		border-radius: 99px;
-		padding: 0.55rem 1.2rem;
-		color: #34d399;
-		font-size: 0.75rem;
-		font-weight: 800;
-		letter-spacing: 0.15em;
-		box-shadow: 0 0 18px #34d39918;
-		animation: banner-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
-	}
-	@keyframes banner-in {
-		from {
-			opacity: 0;
-			transform: scale(0.92) translateY(4px);
-		}
-		to {
-			opacity: 1;
-			transform: scale(1) translateY(0);
-		}
+		gap: 0.55rem;
+		background: #06d6a0;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 50px;
+		padding: 0.6rem 1.3rem;
+		color: #1a1a1a;
+		font-family: 'Bangers', cursive;
+		font-size: 0.95rem;
+		letter-spacing: 0.14em;
+		box-shadow: 3px 3px 0 #1a1a1a;
+		align-self: center;
+		animation: banner-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 	}
 
-	/* ── Round blocks ── */
-	.rounds-list {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-	.round-block {
-		width: 100%;
-		background: #080810;
-		border: 1px solid #1e1c38;
-		border-radius: 14px;
-		overflow: hidden;
-		transition: border-color 0.3s;
-	}
-	.round-block.voted {
-		border-color: #fbbf2430;
-	}
-	.rb-header {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.65rem;
-		padding: 0.7rem 0.9rem;
-		background: #0d0d20;
-		border-bottom: 1px solid #1e1c38;
-		flex-wrap: wrap;
-	}
-	.rb-badge {
-		font-size: 0.58rem;
-		font-weight: 900;
-		letter-spacing: 0.15em;
-		color: #a78bfa;
-		background: #1e1a3a;
-		border: 1px solid #4a4470;
-		border-radius: 4px;
-		padding: 0.12rem 0.38rem;
-		flex-shrink: 0;
-		margin-top: 0.12rem;
-	}
-	.rb-question {
-		font-size: 0.8rem;
-		font-weight: 600;
-		color: #7c6fa0;
-		line-height: 1.45;
-		flex: 1;
-	}
-	.vote-locked-tag {
-		display: flex;
-		align-items: center;
-		gap: 0.3rem;
-		font-size: 0.6rem;
-		font-weight: 800;
-		letter-spacing: 0.12em;
-		color: #fbbf24;
-		background: #1a1200;
-		border: 1px solid #fbbf2435;
-		border-radius: 99px;
-		padding: 0.15rem 0.55rem;
-		flex-shrink: 0;
-		margin-top: 0.08rem;
-		animation: tag-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
-	}
-	@keyframes tag-in {
+	@keyframes banner-pop {
 		from {
 			opacity: 0;
 			transform: scale(0.85);
@@ -445,178 +708,74 @@
 		}
 	}
 
-	/* ── Answer cards ── */
-	.answer-cards {
-		display: flex;
-		flex-direction: column;
-		gap: 0;
-	}
-	.answer-cards form {
-		display: contents;
-	}
-	.answer-card {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		padding: 0.7rem 0.9rem;
-		border-bottom: 1px solid #0d0d1a;
-		background: transparent;
-		transition:
-			background 0.2s,
-			opacity 0.25s;
-		text-align: left;
-		width: 100%;
-		box-sizing: border-box;
-	}
-	.answer-card:last-child,
-	.answer-cards > form:last-child .answer-card {
-		border-bottom: none;
-	}
-	.answer-card.own {
-		opacity: 0.45;
-		cursor: default;
-	}
-	.answer-card.dimmed {
-		opacity: 0.25;
-	}
-	.vote-card {
-		cursor: pointer;
-		font-family: inherit;
-		border: none;
-		color: inherit;
-		position: relative;
-	}
-	.vote-card:not(:disabled):not(.selected):hover {
-		background: #13132a;
-	}
-	.vote-card:not(:disabled):not(.selected):active {
-		background: #1a1535;
-	}
-	.vote-card.selected {
-		background: #1a1200;
-		border-left: 2px solid #fbbf24;
-		padding-left: calc(0.9rem - 2px);
-	}
-	.vote-card:disabled:not(.selected) {
-		cursor: default;
-	}
-	.card-name {
+	/* ── Voter tracker ── */
+	.tracker-section {
 		display: flex;
 		align-items: center;
-		gap: 0.45rem;
-		font-size: 0.65rem;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		color: #4a4470;
-	}
-	.vote-card.selected .card-name {
-		color: #fbbf24cc;
-	}
-	.card-text {
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: #c4b5fd;
-		line-height: 1.4;
-	}
-	.vote-card.selected .card-text {
-		color: #fde68a;
-	}
-	.own-tag {
-		font-size: 0.55rem;
-		font-weight: 800;
-		letter-spacing: 0.1em;
-		color: #7c3aed;
-		background: #2d1b69;
-		border-radius: 99px;
-		padding: 0.1rem 0.38rem;
-	}
-	.selected-indicator {
-		display: flex;
-		align-items: center;
-		gap: 0.3rem;
-		font-size: 0.58rem;
-		font-weight: 800;
-		letter-spacing: 0.18em;
-		color: #fbbf24;
-		margin-top: 0.1rem;
-	}
-	.vote-hint {
-		font-size: 0.56rem;
-		font-weight: 700;
-		letter-spacing: 0.2em;
-		color: #2d2b55;
-		margin-top: 0.1rem;
-		transition: color 0.2s;
-	}
-	.vote-card:not(:disabled):hover .vote-hint {
-		color: #a78bfa66;
+		gap: 0.75rem;
+		flex-wrap: wrap;
 	}
 
-	/* ── Tracker ── */
-	.tracker-section {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-	}
 	.tracker-label {
-		font-size: 0.62rem;
-		font-weight: 700;
-		letter-spacing: 0.25em;
-		color: #2d2b55;
-		text-align: center;
+		font-family: 'Bangers', cursive;
+		font-size: 0.85rem;
+		letter-spacing: 0.22em;
+		color: #7a6a4f;
+		white-space: nowrap;
 	}
+
 	.tracker-grid {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.45rem;
+		gap: 0.4rem;
 	}
+
 	.track-chip {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.3rem 0.7rem;
+		gap: 0.35rem;
+		padding: 0.25rem 0.65rem;
 		border-radius: 99px;
-		background: #080810;
-		border: 1px solid #1e1c38;
+		background: #ffffff;
+		border: 2px solid #ddd;
 		font-size: 0.72rem;
-		font-weight: 600;
-		color: #3a3560;
-		letter-spacing: 0.04em;
+		font-weight: 800;
+		color: #bbb;
 		transition:
-			border-color 0.3s,
-			color 0.3s;
+			border-color 0.25s,
+			color 0.25s,
+			background 0.25s,
+			box-shadow 0.25s;
 	}
+
 	.track-chip.done {
-		border-color: #a78bfa40;
-		color: #a78bfa;
-		background: #13102a;
+		border-color: #1a1a1a;
+		background: #06d6a0;
+		color: #1a1a1a;
+		box-shadow: 2px 2px 0 #1a1a1a;
 	}
+
 	.track-pip {
 		width: 5px;
 		height: 5px;
 		border-radius: 50%;
-		background: #2d2b55;
+		background: #ddd;
 		flex-shrink: 0;
-		transition:
-			background 0.3s,
-			box-shadow 0.3s;
+		transition: background 0.25s;
 	}
+
 	.track-pip.done {
-		background: #a78bfa;
-		box-shadow: 0 0 5px #a78bfa88;
+		background: #1a1a1a;
 	}
-	.track-name {
-		line-height: 1;
-	}
+
 	.track-count {
-		font-size: 0.6rem;
-		font-weight: 700;
-		color: #2d2b55;
-		letter-spacing: 0.05em;
-		transition: color 0.3s;
+		font-size: 0.62rem;
+		font-weight: 800;
+		color: #ccc;
+		transition: color 0.25s;
 	}
+
 	.track-count.done {
-		color: #a78bfa;
+		color: #1a1a1a;
 	}
 </style>
