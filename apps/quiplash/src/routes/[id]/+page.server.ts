@@ -138,7 +138,12 @@ export const actions = {
 		const shuffled = allQuestions.map((q) => q.questions).sort(() => Math.random() - 0.5);
 		const selected = shuffled.slice(0, TOTAL_ROUNDS);
 
-		await startGame(roomCode);
+		// Only the first concurrent caller wins the waiting → in_progress transition.
+		// Subsequent duplicate submits return undefined and we no-op, preventing
+		// duplicate question lists / round rows / round timers.
+		const started = await startGame(roomCode);
+		if (!started) return { success: true };
+
 		broadcast(roomCode, { action: 'game_started' });
 		await scheduleGame(roomCode, lobby.id, selected);
 	},

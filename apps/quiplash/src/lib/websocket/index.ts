@@ -23,6 +23,7 @@ export type VoteTally = {
 	playerName: string;
 	answer: string;
 	voteCount: number;
+	voters: { playerId: string; playerName: string }[];
 };
 
 export type ScoreboardEntry = {
@@ -39,7 +40,8 @@ export type WsMessage =
 	| { action: 'answer_submitted'; playerId: string; round: number }
 	| { action: 'voting_question_started'; roundNumber: number; batchRounds: number[]; answers: VotingAnswer[]; endsAt: string }
 	| { action: 'vote_submitted'; playerId: string; roundNumber: number }
-	| { action: 'voting_question_results'; roundNumber: number; batchRounds: number[]; question: string; tallies: VoteTally[] }
+	| { action: 'voting_question_results'; roundNumber: number; batchRounds: number[]; question: string; tallies: VoteTally[]; endsAt: string }
+	| { action: 'voting_batch_scoreboard'; scoreboard: ScoreboardEntry[] }
 	| { action: 'voting_finished' }
 	| { action: 'game_finished'; answers: GameAnswer[]; scoreboard: ScoreboardEntry[] };
 

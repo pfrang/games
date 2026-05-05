@@ -1,19 +1,21 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { Player } from '@games/db/types';
-	import type { VotingAnswer, VoteTally } from '$lib/websocket';
+	import type { VotingAnswer, VoteTally, ScoreboardEntry } from '$lib/websocket';
 
 	interface Props {
 		batchRounds: number[];
 		currentRoundNumber: number;
 		answers: VotingAnswer[];
 		endsAt: string;
-		subPhase: 'voting' | 'results';
+		subPhase: 'voting' | 'results' | 'scoreboard';
 		tallies: VoteTally[];
 		talliesQuestion: string;
+		talliesEndsAt: string;
 		players: Player[];
 		playerId: string | null;
 		playerVoteCounts: Map<string, number>;
+		batchScoreboard: ScoreboardEntry[];
 	}
 
 	let {
@@ -24,12 +26,15 @@
 		subPhase,
 		tallies,
 		talliesQuestion,
+		talliesEndsAt,
 		players,
 		playerId,
-		playerVoteCounts
+		playerVoteCounts,
+		batchScoreboard
 	}: Props = $props();
 
 	const VOTE_DURATION = 20;
+	const RESULTS_DURATION = 20;
 	const RADIUS = 50;
 	const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -43,32 +48,42 @@
 	});
 
 	let timerColor = $derived(timeLeft > 10 ? '#06d6a0' : timeLeft > 5 ? '#ffd60a' : '#ff4747');
+	let timerDuration = $derived(subPhase === 'results' ? RESULTS_DURATION : VOTE_DURATION);
 	let dashOffset = $derived(
-		CIRCUMFERENCE * (1 - Math.max(0, Math.min(timeLeft, VOTE_DURATION)) / VOTE_DURATION)
+		CIRCUMFERENCE * (1 - Math.max(0, Math.min(timeLeft, timerDuration)) / timerDuration)
 	);
 	let isUrgent = $derived(timeLeft <= 5 && timeLeft > 0);
 
 	let currentQuestionIndex = $derived(batchRounds.indexOf(currentRoundNumber));
 
 	// The question text — from answers during voting, from talliesQuestion during results
-	let question = $derived(subPhase === 'results' ? talliesQuestion : (answers[0]?.question ?? ''));
+	let question = $derived(
+		subPhase === 'results' ? talliesQuestion : subPhase === 'scoreboard' ? '' : (answers[0]?.question ?? '')
+	);
 
 	let hasVoted = $derived(myVote !== null);
 	let allVoted = $derived(
 		players.length > 0 &&
-			[...playerVoteCounts.values()].filter(Boolean).length >= players.length - 1
+			[...playerVoteCounts.values()].filter(Boolean).length >= players.length
 	);
 
 	// Sorted tallies: highest votes first
 	let sortedTallies = $derived([...tallies].sort((a, b) => b.voteCount - a.voteCount));
 	let winnerVoteCount = $derived(sortedTallies[0]?.voteCount ?? 0);
+	let topTallies = $derived(
+		sortedTallies.filter((t) => t.voteCount === winnerVoteCount && winnerVoteCount > 0)
+	);
+	let isTie = $derived(topTallies.length > 1);
+	let tiedNames = $derived(topTallies.map((t) => t.playerName));
 
 	$effect(() => {
-		if (subPhase !== 'voting' || !endsAt) {
+		const activeEndsAt =
+			subPhase === 'voting' ? endsAt : subPhase === 'results' ? talliesEndsAt : '';
+		if (!activeEndsAt) {
 			timeLeft = 0;
 			return;
 		}
-		const end = new Date(endsAt).getTime();
+		const end = new Date(activeEndsAt).getTime();
 		const update = () => {
 			timeLeft = Math.max(0, Math.ceil((end - Date.now()) / 1000));
 		};
@@ -83,7 +98,10 @@
 	<div class="voting-topbar">
 		<div class="topbar-left">
 			<h2 class="v-title">
-				{#if subPhase === 'results'}
+				{#if subPhase === 'scoreboard'}
+					<span class="v-word">SCORES</span>
+					<span class="v-word accent">SO FAR</span>
+				{:else if subPhase === 'results'}
 					<span class="v-word">RESULTS</span>
 				{:else}
 					<span class="v-word">VOTING</span>
@@ -94,17 +112,16 @@
 				{#each batchRounds as rn, i}
 					<span
 						class="p-dot"
-						class:current={i === currentQuestionIndex}
-						class:done={i < currentQuestionIndex ||
-							(i === currentQuestionIndex && subPhase === 'results')}
+						class:current={i === currentQuestionIndex && subPhase !== 'scoreboard'}
+						class:done={i < currentQuestionIndex || subPhase === 'scoreboard'}
 						aria-label="Question {i + 1}"
 					></span>
 				{/each}
 			</div>
 		</div>
 
-		<!-- Timer (only during voting subphase) -->
-		{#if subPhase === 'voting'}
+		<!-- Timer (during voting + results subphases) -->
+		{#if subPhase === 'voting' || subPhase === 'results'}
 			<div class="timer-wrap" class:urgent={isUrgent}>
 				{#if timeLeft === 0}
 					<div class="transitioning">
@@ -172,8 +189,32 @@
 		{/key}
 	{/if}
 
+	<!-- SCOREBOARD sub-phase: accumulated scores after the batch -->
+	{#if subPhase === 'scoreboard'}
+		<div class="batch-scoreboard">
+			<div class="bs-header">
+				<span class="bs-title">SCORES SO FAR</span>
+			</div>
+			<div class="bs-rows">
+				{#each batchScoreboard as entry, i (entry.playerId)}
+					{@const isYou = entry.playerId === playerId}
+					{@const isTop = i === 0 && entry.totalVotes > 0}
+					<div class="bs-row" class:you={isYou} class:top={isTop}>
+						<span class="bs-rank">{i + 1}</span>
+						<span class="bs-name"
+							>{entry.playerName}{#if isYou}<span class="you-tag">YOU</span>{/if}</span
+						>
+						<span class="bs-votes"
+							>{entry.totalVotes}
+							{entry.totalVotes === 1 ? 'vote' : 'votes'}</span
+						>
+					</div>
+				{/each}
+			</div>
+		</div>
+
 	<!-- VOTING sub-phase: answers to vote on -->
-	{#if subPhase === 'voting'}
+	{:else if subPhase === 'voting'}
 		{#if answers.length === 0}
 			<div class="empty-state">
 				<span class="empty-emoji">😬</span>
@@ -201,9 +242,14 @@
 							method="POST"
 							action="?/submit_vote"
 							use:enhance={() => {
+								const roundAtSubmit = currentRoundNumber;
+								const votedAnswerId = answer.answerId;
 								return async ({ result, update }) => {
-									if (result.type === 'success' || result.type === 'redirect') {
-										myVote = answer.answerId;
+									if (
+										(result.type === 'success' || result.type === 'redirect') &&
+										currentRoundNumber === roundAtSubmit
+									) {
+										myVote = votedAnswerId;
 									}
 									await update({ reset: false });
 								};
@@ -278,20 +324,37 @@
 				<p class="empty-body">No votes were cast...</p>
 			</div>
 		{:else}
+			{#if isTie}
+				<div class="tie-banner">
+					<span class="tie-emoji">🤝</span>
+					<span class="tie-text">
+						<span class="tie-label">TIED</span>
+						<span class="tie-names">{tiedNames.join(' & ')}</span>
+					</span>
+				</div>
+			{/if}
 			<div class="results-grid">
 				{#each sortedTallies as tally, i (tally.answerId)}
-					{@const isWinner = tally.voteCount === winnerVoteCount && winnerVoteCount > 0}
+					{@const isTopTally = tally.voteCount === winnerVoteCount && winnerVoteCount > 0}
+					{@const isWinner = isTopTally && !isTie}
 					{@const isOwn = tally.playerId === playerId}
-					<div class="result-card" class:winner={isWinner} class:own={isOwn}>
+					<div
+						class="result-card"
+						class:winner={isWinner}
+						class:tied={isTopTally && isTie}
+						class:own={isOwn}
+					>
 						{#if isWinner}
 							<div class="winner-crown">👑 WINNER</div>
+						{:else if isTopTally && isTie}
+							<div class="winner-crown tied">🤝 TIED</div>
 						{/if}
 						<div class="result-header">
 							<span class="result-name"
 								>{tally.playerName}{#if isOwn}
 									<span class="own-tag">YOU</span>{/if}</span
 							>
-							<span class="result-votes" class:winner={isWinner}>
+							<span class="result-votes" class:winner={isTopTally}>
 								{tally.voteCount}
 								{tally.voteCount === 1 ? 'vote' : 'votes'}
 							</span>
@@ -300,12 +363,25 @@
 						<div class="vote-bar">
 							<div
 								class="vote-bar-fill"
-								class:winner={isWinner}
+								class:winner={isTopTally}
 								style="width: {winnerVoteCount > 0
 									? Math.round((tally.voteCount / winnerVoteCount) * 100)
 									: 0}%"
 							></div>
 						</div>
+						{#if tally.voters.length > 0}
+							<div class="voters-row">
+								<span class="voters-label">VOTED BY</span>
+								<div class="voters-chips">
+									{#each tally.voters as voter (voter.playerId)}
+										{@const isYouVoter = voter.playerId === playerId}
+										<span class="voter-chip" class:you={isYouVoter}>
+											{voter.playerName}{#if isYouVoter}<span class="voter-you">YOU</span>{/if}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -796,6 +872,58 @@
 		box-shadow: 5px 5px 0 #ffd60a;
 	}
 
+	.result-card.tied {
+		background: #fff0f7;
+		border-color: #ff3b82;
+		box-shadow: 5px 5px 0 #ff3b82;
+	}
+
+	.tie-banner {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		padding: 0.7rem 1.1rem;
+		background: #ff3b82;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 14px;
+		box-shadow: 4px 4px 0 #1a1a1a;
+		animation: result-drop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	.tie-emoji {
+		font-size: 1.7rem;
+		line-height: 1;
+	}
+
+	.tie-text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.05rem;
+	}
+
+	.tie-label {
+		font-family: 'Bangers', cursive;
+		font-size: 1.4rem;
+		letter-spacing: 0.18em;
+		color: #ffffff;
+		-webkit-text-stroke: 1.5px #1a1a1a;
+		paint-order: stroke fill;
+		line-height: 1;
+	}
+
+	.tie-names {
+		font-size: 0.85rem;
+		font-weight: 800;
+		color: #ffffff;
+		letter-spacing: 0.04em;
+	}
+
+	.winner-crown.tied {
+		background: #ff3b82;
+		color: #ffffff;
+		border-color: #1a1a1a;
+	}
+
 	@keyframes result-drop {
 		from {
 			opacity: 0;
@@ -873,6 +1001,175 @@
 
 	.vote-bar-fill.winner {
 		background: #ffd60a;
+	}
+
+	.voters-row {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		flex-wrap: wrap;
+		margin-top: 0.4rem;
+	}
+
+	.voters-label {
+		font-family: 'Bangers', cursive;
+		font-size: 0.7rem;
+		letter-spacing: 0.18em;
+		color: #7a6a4f;
+		white-space: nowrap;
+	}
+
+	.voters-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+	}
+
+	.voter-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.18rem 0.55rem;
+		border-radius: 99px;
+		background: #ffffff;
+		border: 2px solid #1a1a1a;
+		font-size: 0.72rem;
+		font-weight: 800;
+		color: #1a1a1a;
+		box-shadow: 1.5px 1.5px 0 #1a1a1a;
+		animation: voter-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	.voter-chip.you {
+		background: #4cc9f0;
+	}
+
+	.voter-you {
+		font-family: 'Bangers', cursive;
+		font-size: 0.55rem;
+		letter-spacing: 0.1em;
+		color: #ffffff;
+		background: #1a1a1a;
+		border-radius: 99px;
+		padding: 0.04rem 0.32rem;
+		line-height: 1;
+	}
+
+	@keyframes voter-pop {
+		from {
+			opacity: 0;
+			transform: scale(0.6) translateY(4px);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1) translateY(0);
+		}
+	}
+
+	/* ── Batch scoreboard ── */
+	.batch-scoreboard {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		width: 100%;
+		animation: q-bounce-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	.bs-header {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.bs-title {
+		font-family: 'Bangers', cursive;
+		font-size: 2rem;
+		letter-spacing: 0.2em;
+		color: #ff3b82;
+		-webkit-text-stroke: 1.5px #1a1a1a;
+		paint-order: stroke fill;
+	}
+
+	.bs-rows {
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+	}
+
+	.bs-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		background: #ffffff;
+		border: 2.5px solid #1a1a1a;
+		border-radius: 14px;
+		box-shadow: 4px 4px 0 #1a1a1a;
+		animation: result-drop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	.bs-row.top {
+		background: #fffbea;
+		border-color: #ffd60a;
+		box-shadow: 5px 5px 0 #ffd60a;
+	}
+
+	.bs-row.you {
+		border-color: #4cc9f0;
+		box-shadow: 4px 4px 0 #1a1a1a;
+	}
+
+	.bs-row.top.you {
+		border-color: #ffd60a;
+	}
+
+	.bs-rank {
+		font-family: 'Bangers', cursive;
+		font-size: 1.4rem;
+		letter-spacing: 0.05em;
+		color: #ccc;
+		min-width: 1.4rem;
+		text-align: center;
+	}
+
+	.bs-row.top .bs-rank {
+		color: #ffd60a;
+		-webkit-text-stroke: 1px #1a1a1a;
+		paint-order: stroke fill;
+		font-size: 1.6rem;
+	}
+
+	.bs-name {
+		flex: 1;
+		font-size: 0.95rem;
+		font-weight: 800;
+		color: #1a1a1a;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.you-tag {
+		font-family: 'Bangers', cursive;
+		font-size: 0.6rem;
+		letter-spacing: 0.1em;
+		color: #ffffff;
+		background: #4cc9f0;
+		border: 1.5px solid #1a1a1a;
+		border-radius: 99px;
+		padding: 0.06rem 0.4rem;
+	}
+
+	.bs-votes {
+		font-family: 'Bangers', cursive;
+		font-size: 0.9rem;
+		letter-spacing: 0.08em;
+		color: #aaa;
+		white-space: nowrap;
+	}
+
+	.bs-row.top .bs-votes {
+		color: #ff6b35;
 	}
 
 	/* ── Empty state ── */

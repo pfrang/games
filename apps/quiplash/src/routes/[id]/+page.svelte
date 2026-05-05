@@ -33,10 +33,12 @@
 	let votingCurrentRound = $state<number>(data.votingBatch?.currentRound ?? 0);
 	let votingAnswers = $state<VotingAnswer[]>(data.votingBatch?.answers ?? []);
 	let votingEndsAt = $state<string>(data.votingBatch?.endsAt ?? '');
-	let votingSubPhase = $state<'voting' | 'results'>('voting');
+	let votingSubPhase = $state<'voting' | 'results' | 'scoreboard'>('voting');
 	let votingTallies = $state<VoteTally[]>([]);
 	let votingResultsQuestion = $state<string>('');
+	let votingResultsEndsAt = $state<string>('');
 	let playerVoteCounts = $state<Map<string, number>>(new Map());
+	let votingBatchScoreboard = $state<ScoreboardEntry[]>([]);
 
 	let gamePhase = $derived<'answering' | 'voting' | 'finished'>(
 		lobbyStatus === 'finished' ? 'finished' : isVoting ? 'voting' : 'answering'
@@ -105,9 +107,16 @@
 				[msg.playerId, (playerVoteCounts.get(msg.playerId) ?? 0) + 1]
 			]);
 		} else if (msg.action === 'voting_question_results') {
+			isVoting = true;
 			votingSubPhase = 'results';
+			votingBatchRounds = msg.batchRounds;
+			votingCurrentRound = msg.roundNumber;
 			votingTallies = msg.tallies;
 			votingResultsQuestion = msg.question;
+			votingResultsEndsAt = msg.endsAt;
+		} else if (msg.action === 'voting_batch_scoreboard') {
+			votingSubPhase = 'scoreboard';
+			votingBatchScoreboard = msg.scoreboard;
 		} else if (msg.action === 'voting_finished') {
 			// All questions done — round_started or game_finished follows
 		} else if (msg.action === 'game_finished') {
@@ -216,7 +225,9 @@
 			{votingSubPhase}
 			{votingTallies}
 			{votingResultsQuestion}
+			{votingResultsEndsAt}
 			{playerVoteCounts}
+			{votingBatchScoreboard}
 		/>
 	</div>
 {/if}

@@ -3,20 +3,22 @@ import { getCurrentRound } from '$lib/db/rounds';
 import { finishGame, saveGameQuestions, saveVotingPhase, clearVotingPhase } from '$lib/db/lobbies/edit';
 import { getLobbyByRoomCode, getInProgressLobbies } from '$lib/db/lobbies';
 import { getAnswersSummary, getAnswersForVoting } from '$lib/db/answers';
-import { getVotesForBatch, getVoteCountForRound, getScoreboard } from '$lib/db/votes';
+import { getVoteCountForRound, getScoreboard, getVotesForBatch } from '$lib/db/votes';
 import { getPlayersByLobbyId } from '$lib/db/players';
 import { broadcast } from '.';
 import type { VoteTally } from '$lib/websocket';
 
 export const ROUND_DURATION_MS = 60_000;
 export const VOTE_DURATION_MS = 20_000;
-export const RESULTS_DURATION_MS = 5_000;
+export const RESULTS_DURATION_MS = 20_000;
+export const SCOREBOARD_DURATION_MS = 6_000;
 export const TOTAL_ROUNDS = 10;
 export const ROUNDS_PER_VOTING_BATCH = 3;
 
 const roundTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const votingQuestionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const votingResultsTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const scoreboardTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // In-memory batch state for early-advance logic
 const votingBatchState = new Map<string, { batchRounds: number[]; questionIndex: number }>();
@@ -25,6 +27,7 @@ export function isVotingActive(roomCode: string) {
 	return (
 		votingQuestionTimers.has(roomCode) ||
 		votingResultsTimers.has(roomCode) ||
+		scoreboardTimers.has(roomCode) ||
 		votingBatchState.has(roomCode)
 	);
 }
@@ -145,46 +148,11 @@ async function endVotingQuestion(
 	clearTimeout(votingQuestionTimers.get(roomCode));
 	votingQuestionTimers.delete(roomCode);
 
-	const roundNumber = batchRounds[questionIndex];
-	const [votes, answers] = await Promise.all([
-		getVotesForBatch(lobbyId, [roundNumber]),
-		getAnswersForVoting(lobbyId, [roundNumber])
-	]);
-
-	const tallyMap = new Map<string, VoteTally>();
-	for (const a of answers) {
-		tallyMap.set(a.answerId, {
-			answerId: a.answerId,
-			playerId: a.playerId,
-			playerName: a.playerName,
-			answer: a.answer,
-			voteCount: 0
-		});
-	}
-	for (const vote of votes) {
-		const tally = tallyMap.get(vote.answerId);
-		if (tally) tally.voteCount++;
-	}
-
-	const question = answers[0]?.question ?? '';
-
-	broadcast(roomCode, {
-		action: 'voting_question_results',
-		roundNumber,
-		batchRounds,
-		question,
-		tallies: [...tallyMap.values()]
-	});
-
 	console.log(
-		`[game] room ${roomCode} — voting Q${questionIndex + 1}/${batchRounds.length} results shown`
+		`[game] room ${roomCode} — voting Q${questionIndex + 1}/${batchRounds.length} done`
 	);
 
-	const timer = setTimeout(async () => {
-		votingResultsTimers.delete(roomCode);
-		await advanceVotingBatch(roomCode, lobbyId, batchRounds, questionIndex);
-	}, RESULTS_DURATION_MS);
-	votingResultsTimers.set(roomCode, timer);
+	await advanceVotingBatch(roomCode, lobbyId, batchRounds, questionIndex);
 }
 
 async function advanceVotingBatch(
@@ -198,10 +166,94 @@ async function advanceVotingBatch(
 	if (nextIndex < batchRounds.length) {
 		await startVotingQuestion(roomCode, lobbyId, batchRounds, nextIndex);
 	} else {
-		// All questions in batch done
+		// All questions in batch voted — recap each question's votes, then show scoreboard
 		await clearVotingPhase(roomCode);
 		votingBatchState.delete(roomCode);
 
+		console.log(`[game] room ${roomCode} — voting batch [${batchRounds.join(', ')}] finished, recapping`);
+
+		await showResultsForRound(roomCode, lobbyId, batchRounds, 0);
+	}
+}
+
+async function showResultsForRound(
+	roomCode: string,
+	lobbyId: string,
+	batchRounds: number[],
+	resultsIndex: number
+) {
+	if (resultsIndex >= batchRounds.length) {
+		await showBatchScoreboard(roomCode, lobbyId, batchRounds);
+		return;
+	}
+
+	const roundNumber = batchRounds[resultsIndex];
+	const [answers, votes, players] = await Promise.all([
+		getAnswersForVoting(lobbyId, [roundNumber]),
+		getVotesForBatch(lobbyId, [roundNumber]),
+		getPlayersByLobbyId(lobbyId)
+	]);
+
+	// Skip recap entirely if nobody answered this round
+	if (answers.length === 0) {
+		await showResultsForRound(roomCode, lobbyId, batchRounds, resultsIndex + 1);
+		return;
+	}
+
+	const playerNameMap = new Map(players.map((p) => [p.id, p.name]));
+
+	const tallyMap = new Map<string, VoteTally>();
+	for (const a of answers) {
+		tallyMap.set(a.answerId, {
+			answerId: a.answerId,
+			playerId: a.playerId,
+			playerName: a.playerName,
+			answer: a.answer,
+			voteCount: 0,
+			voters: []
+		});
+	}
+	for (const vote of votes) {
+		const tally = tallyMap.get(vote.answerId);
+		if (!tally) continue;
+		tally.voteCount++;
+		tally.voters.push({
+			playerId: vote.voterId,
+			playerName: playerNameMap.get(vote.voterId) ?? 'Unknown'
+		});
+	}
+
+	const endsAt = new Date(Date.now() + RESULTS_DURATION_MS);
+
+	broadcast(roomCode, {
+		action: 'voting_question_results',
+		roundNumber,
+		batchRounds,
+		question: answers[0].question,
+		tallies: [...tallyMap.values()],
+		endsAt: endsAt.toISOString()
+	});
+
+	console.log(
+		`[game] room ${roomCode} — recap Q${resultsIndex + 1}/${batchRounds.length} (round ${roundNumber})`
+	);
+
+	clearTimeout(votingResultsTimers.get(roomCode));
+	const timer = setTimeout(async () => {
+		votingResultsTimers.delete(roomCode);
+		await showResultsForRound(roomCode, lobbyId, batchRounds, resultsIndex + 1);
+	}, RESULTS_DURATION_MS);
+	votingResultsTimers.set(roomCode, timer);
+}
+
+async function showBatchScoreboard(roomCode: string, lobbyId: string, batchRounds: number[]) {
+	const scoreboard = await getScoreboard(lobbyId);
+	broadcast(roomCode, { action: 'voting_batch_scoreboard', scoreboard });
+
+	console.log(`[game] room ${roomCode} — showing batch scoreboard`);
+
+	const timer = setTimeout(async () => {
+		scoreboardTimers.delete(roomCode);
 		broadcast(roomCode, { action: 'voting_finished' });
 
 		const lastRound = Math.max(...batchRounds);
@@ -212,9 +264,8 @@ async function advanceVotingBatch(
 		} else {
 			await endGame(roomCode, lobbyId);
 		}
-
-		console.log(`[game] room ${roomCode} — voting batch [${batchRounds.join(', ')}] finished`);
-	}
+	}, SCOREBOARD_DURATION_MS);
+	scoreboardTimers.set(roomCode, timer);
 }
 
 // Called from submit_vote when all eligible voters for the current question have voted
@@ -239,6 +290,7 @@ export async function endGame(roomCode: string, lobbyId: string) {
 }
 
 function armRoundTimer(roomCode: string, lobbyId: string, roundNumber: number, endsAt: Date) {
+	clearTimeout(roundTimers.get(roomCode));
 	const msLeft = Math.max(0, endsAt.getTime() - Date.now());
 	const timer = setTimeout(async () => {
 		await expireRound(roomCode, lobbyId, roundNumber);
@@ -253,6 +305,7 @@ function armVotingQuestionTimer(
 	questionIndex: number,
 	endsAt: Date
 ) {
+	clearTimeout(votingQuestionTimers.get(roomCode));
 	const msLeft = Math.max(0, endsAt.getTime() - Date.now());
 	const timer = setTimeout(async () => {
 		votingQuestionTimers.delete(roomCode);

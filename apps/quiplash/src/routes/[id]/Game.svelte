@@ -21,10 +21,12 @@
 		votingCurrentRound: number;
 		votingAnswers: VotingAnswer[];
 		votingEndsAt: string;
-		votingSubPhase: 'voting' | 'results';
+		votingSubPhase: 'voting' | 'results' | 'scoreboard';
 		votingTallies: VoteTally[];
 		votingResultsQuestion: string;
+		votingResultsEndsAt: string;
 		playerVoteCounts: Map<string, number>;
+		votingBatchScoreboard: ScoreboardEntry[];
 	}
 
 	let {
@@ -46,7 +48,9 @@
 		votingSubPhase,
 		votingTallies,
 		votingResultsQuestion,
-		playerVoteCounts
+		votingResultsEndsAt,
+		playerVoteCounts,
+		votingBatchScoreboard
 	}: Props = $props();
 
 	const ROUND_DURATION = 60;
@@ -89,9 +93,11 @@
 		subPhase={votingSubPhase}
 		tallies={votingTallies}
 		talliesQuestion={votingResultsQuestion}
+		talliesEndsAt={votingResultsEndsAt}
 		{players}
 		{playerId}
 		{playerVoteCounts}
+		batchScoreboard={votingBatchScoreboard}
 	/>
 {:else}
 	<div class="answering-wrap">
