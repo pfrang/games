@@ -37,6 +37,10 @@ packages/db/         # Drizzle ORM schema, migrations, typed queries
 packages/redis/      # Shared Redis client wrapper (not used currently)
 ```
 
+## Procedures
+
+Always run pnpm ts:check after every change
+
 ### Database schema (packages/db)
 
 Five tables: `lobbies` (status: waiting/in_progress/finished), `players` (with `isHost` flag), `questions` (seeded prompt bank), `rounds` (one per round per lobby), `answers`, `votes`. All cascade-delete from `lobbies`.

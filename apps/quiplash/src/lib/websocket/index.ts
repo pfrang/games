@@ -21,6 +21,7 @@ export type VoteTally = {
 	answerId: string;
 	playerId: string;
 	playerName: string;
+	answer: string;
 	voteCount: number;
 };
 
@@ -36,9 +37,10 @@ export type WsMessage =
 	| { action: 'game_started' }
 	| { action: 'round_started'; round: number; question: string; endsAt: string; totalRounds: number }
 	| { action: 'answer_submitted'; playerId: string; round: number }
-	| { action: 'voting_started'; rounds: number[]; answers: VotingAnswer[]; endsAt: string }
+	| { action: 'voting_question_started'; roundNumber: number; batchRounds: number[]; answers: VotingAnswer[]; endsAt: string }
 	| { action: 'vote_submitted'; playerId: string; roundNumber: number }
-	| { action: 'voting_finished'; tallies: VoteTally[] }
+	| { action: 'voting_question_results'; roundNumber: number; batchRounds: number[]; question: string; tallies: VoteTally[] }
+	| { action: 'voting_finished' }
 	| { action: 'game_finished'; answers: GameAnswer[]; scoreboard: ScoreboardEntry[] };
 
 export class Socket {

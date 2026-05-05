@@ -7,6 +7,9 @@
     },
     "build": {
       "outputs": [".svelte-kit/**", "build/**"]
+    },
+    "ts:check": {
+      "cache": false
     }
   }
 }

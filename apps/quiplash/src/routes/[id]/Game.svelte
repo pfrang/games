@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { Player } from '@games/db/types';
-	import type { GameAnswer, VotingAnswer, ScoreboardEntry } from '$lib/websocket';
+	import type { GameAnswer, VotingAnswer, VoteTally, ScoreboardEntry } from '$lib/websocket';
 	import GameDone from './GameDone.svelte';
 	import VotingPhase from './VotingPhase.svelte';
 
@@ -17,9 +17,13 @@
 		submittedPlayerIds: Set<string>;
 		answers: GameAnswer[];
 		scoreboard: ScoreboardEntry[];
-		votingRounds: number[];
+		votingBatchRounds: number[];
+		votingCurrentRound: number;
 		votingAnswers: VotingAnswer[];
 		votingEndsAt: string;
+		votingSubPhase: 'voting' | 'results';
+		votingTallies: VoteTally[];
+		votingResultsQuestion: string;
 		playerVoteCounts: Map<string, number>;
 	}
 
@@ -35,9 +39,13 @@
 		submittedPlayerIds,
 		answers,
 		scoreboard,
-		votingRounds,
+		votingBatchRounds,
+		votingCurrentRound,
 		votingAnswers,
 		votingEndsAt,
+		votingSubPhase,
+		votingTallies,
+		votingResultsQuestion,
 		playerVoteCounts
 	}: Props = $props();
 
@@ -74,9 +82,13 @@
 	<GameDone {answers} {playerId} {scoreboard} />
 {:else if phase === 'voting'}
 	<VotingPhase
-		rounds={votingRounds}
+		batchRounds={votingBatchRounds}
+		currentRoundNumber={votingCurrentRound}
 		answers={votingAnswers}
 		endsAt={votingEndsAt}
+		subPhase={votingSubPhase}
+		tallies={votingTallies}
+		talliesQuestion={votingResultsQuestion}
 		{players}
 		{playerId}
 		{playerVoteCounts}

@@ -22,6 +22,7 @@ export const lobbiesTable = pgTable("lobbies", {
   questionsOrder: text("questions_order"), // JSON: string[] — shuffled question list for the active game
   votingEndsAt: timestamp("voting_ends_at"), // null when no voting phase is active
   votingRounds: text("voting_rounds"), // JSON: number[] — round numbers in the active voting batch
+  votingCurrentRound: integer("voting_current_round"), // which round number is currently being voted on
 });
 
 export const playersTable = pgTable("players", {

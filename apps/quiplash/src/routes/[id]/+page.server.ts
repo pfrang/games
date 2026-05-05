@@ -20,7 +20,7 @@ import type { PageServerLoad } from './$types';
 import {
 	scheduleGame,
 	advanceFromRound,
-	endVoting,
+	advanceFromVotingQuestion,
 	getVotingBatch,
 	TOTAL_ROUNDS
 } from '$lib/server/websocket/game';
@@ -51,9 +51,10 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 				hasSubmitted: false,
 				gameAnswers: null,
 				votingBatch: {
-					rounds: votingBatch.roundNumbers,
+					batchRounds: votingBatch.batchRounds,
+					currentRound: votingBatch.currentRound,
 					answers: votingBatch.answers,
-					endsAt: votingBatch.endsAt.toISOString()
+					endsAt: votingBatch.endsAt?.toISOString() ?? new Date().toISOString()
 				}
 			};
 		}
@@ -218,6 +219,9 @@ export const actions = {
 		if (targetAnswer.playerId === playerCookie.id) {
 			return fail(400, { message: 'Cannot vote for your own answer.' });
 		}
+		if (targetAnswer.roundNumber !== batch.currentRound) {
+			return fail(400, { message: 'Not the current question.' });
+		}
 
 		const existingVote = await getVoteForPlayerRound(playerCookie.id, lobby.id, roundNumber);
 		if (existingVote) return fail(400, { message: 'Already voted for this round.' });
@@ -235,24 +239,15 @@ export const actions = {
 			roundNumber
 		});
 
-		// Check if all eligible players have voted for all rounds
+		// Check if all eligible players have voted for the current question
 		const players = await getPlayersByLobbyId(lobby.id);
-		let allVoted = true;
+		const eligibleVoters = players.filter((p) =>
+			batch.answers.some((a) => a.playerId !== p.id)
+		);
+		const voteCount = await getVoteCountForRound(lobby.id, batch.currentRound);
 
-		for (const rn of batch.roundNumbers) {
-			const answersInRound = batch.answers.filter((a) => a.roundNumber === rn);
-			const eligibleVoters = players.filter((p) =>
-				answersInRound.some((a) => a.playerId !== p.id)
-			);
-			const voteCount = await getVoteCountForRound(lobby.id, rn);
-			if (voteCount < eligibleVoters.length) {
-				allVoted = false;
-				break;
-			}
-		}
-
-		if (allVoted) {
-			await endVoting(roomCode, lobby.id);
+		if (voteCount >= eligibleVoters.length) {
+			await advanceFromVotingQuestion(roomCode, lobby.id);
 		}
 
 		return { success: true };

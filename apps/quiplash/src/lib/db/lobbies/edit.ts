@@ -38,18 +38,19 @@ export async function saveGameQuestions(roomCode: string, questions: string[]) {
 
 export async function saveVotingPhase(
 	roomCode: string,
-	roundNumbers: number[],
+	batchRounds: number[],
+	currentRound: number,
 	endsAt: Date
 ) {
 	await db
 		.update(lobbiesTable)
-		.set({ votingEndsAt: endsAt, votingRounds: JSON.stringify(roundNumbers) })
+		.set({ votingEndsAt: endsAt, votingRounds: JSON.stringify(batchRounds), votingCurrentRound: currentRound })
 		.where(eq(lobbiesTable.roomCode, roomCode));
 }
 
 export async function clearVotingPhase(roomCode: string) {
 	await db
 		.update(lobbiesTable)
-		.set({ votingEndsAt: null, votingRounds: null })
+		.set({ votingEndsAt: null, votingRounds: null, votingCurrentRound: null })
 		.where(eq(lobbiesTable.roomCode, roomCode));
 }

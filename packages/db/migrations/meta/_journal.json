@@ -43,6 +43,13 @@
       "when": 1777903001941,
       "tag": "0005_slippery_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777978517181,
+      "tag": "0006_glorious_wong",
+      "breakpoints": true
     }
   ]
 }

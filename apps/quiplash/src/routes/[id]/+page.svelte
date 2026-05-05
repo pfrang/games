@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Socket, type WsMessage, type GameAnswer, type VotingAnswer, type ScoreboardEntry } from '$lib/websocket';
+	import { Socket, type WsMessage, type GameAnswer, type VotingAnswer, type VoteTally, type ScoreboardEntry } from '$lib/websocket';
 	import type { Lobby, Player } from '@games/db/types';
 	import type { PageProps } from './$types';
 	import Game from './Game.svelte';
@@ -27,11 +27,15 @@
 	let gameAnswers = $state<GameAnswer[]>(data.gameAnswers ?? []);
 	let gameScoreboard = $state<ScoreboardEntry[]>([]);
 
-	// Voting state
+	// Voting state — per-question
 	let isVoting = $state<boolean>(!!data.votingBatch);
-	let votingRounds = $state<number[]>(data.votingBatch?.rounds ?? []);
+	let votingBatchRounds = $state<number[]>(data.votingBatch?.batchRounds ?? []);
+	let votingCurrentRound = $state<number>(data.votingBatch?.currentRound ?? 0);
 	let votingAnswers = $state<VotingAnswer[]>(data.votingBatch?.answers ?? []);
 	let votingEndsAt = $state<string>(data.votingBatch?.endsAt ?? '');
+	let votingSubPhase = $state<'voting' | 'results'>('voting');
+	let votingTallies = $state<VoteTally[]>([]);
+	let votingResultsQuestion = $state<string>('');
 	let playerVoteCounts = $state<Map<string, number>>(new Map());
 
 	let gamePhase = $derived<'answering' | 'voting' | 'finished'>(
@@ -86,19 +90,26 @@
 			if (msg.playerId === playerId) {
 				hasSubmitted = true;
 			}
-		} else if (msg.action === 'voting_started') {
+		} else if (msg.action === 'voting_question_started') {
 			isVoting = true;
-			votingRounds = msg.rounds;
+			votingBatchRounds = msg.batchRounds;
+			votingCurrentRound = msg.roundNumber;
 			votingAnswers = msg.answers;
 			votingEndsAt = msg.endsAt;
+			votingSubPhase = 'voting';
+			votingTallies = [];
 			playerVoteCounts = new Map();
 		} else if (msg.action === 'vote_submitted') {
 			playerVoteCounts = new Map([
 				...playerVoteCounts,
 				[msg.playerId, (playerVoteCounts.get(msg.playerId) ?? 0) + 1]
 			]);
+		} else if (msg.action === 'voting_question_results') {
+			votingSubPhase = 'results';
+			votingTallies = msg.tallies;
+			votingResultsQuestion = msg.question;
 		} else if (msg.action === 'voting_finished') {
-			// Voting ended — round_started or game_finished will follow
+			// All questions done — round_started or game_finished follows
 		} else if (msg.action === 'game_finished') {
 			lobbyStatus = 'finished';
 			gameAnswers = msg.answers;
@@ -198,9 +209,13 @@
 			{submittedPlayerIds}
 			answers={gameAnswers}
 			scoreboard={gameScoreboard}
-			{votingRounds}
+			{votingBatchRounds}
+			{votingCurrentRound}
 			{votingAnswers}
 			{votingEndsAt}
+			{votingSubPhase}
+			{votingTallies}
+			{votingResultsQuestion}
 			{playerVoteCounts}
 		/>
 	</div>
